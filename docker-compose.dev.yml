@@ -28,8 +28,8 @@ services:
     environment:
       - NEXT_PUBLIC_BACKEND_URL=http://backend:3001
       - NEXT_PUBLIC_COLLAB_URL=ws://backend:3002
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_SUPABASE_URL=http://supabase:8000
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - NODE_ENV=development
     volumes:
       - ./frontend:/app
@@ -37,7 +37,21 @@ services:
     command: npm run dev
     depends_on:
       - backend
+      - supabase
+
+  # Supabase (self-hosted, local dev) - minimal for auth + Postgres
+  supabase:
+    image: supabase/postgres:15.1.0.84
+    ports:
+      - "54322:5432"
+      - "8000:8000"
+    environment:
+      - POSTGRES_PASSWORD=${SUPABASE_DB_PASSWORD:-postgres}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+    volumes:
+      - supabase_data:/var/lib/postgresql/data
 
 volumes:
   backend_node_modules:
   frontend_node_modules:
+  supabase_data:
