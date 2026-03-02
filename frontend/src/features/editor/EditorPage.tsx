@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import MonacoEditor from '@/components/MonacoEditor';
+import dynamic from 'next/dynamic';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+const MonacoEditor = dynamic(() => import('@/components/MonacoEditor'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full text-muted-foreground">
+      Loading editor...
+    </div>
+  ),
+});
 
 export default function EditorPage() {
   const [roomId, setRoomId] = useState('');
