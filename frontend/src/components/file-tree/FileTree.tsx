@@ -1,7 +1,7 @@
 'use client';
 
 import * as Y from 'yjs';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,7 +12,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { File, FolderPlus, Trash2, Edit2, Code2 } from 'lucide-react';
+import { File, FolderPlus, Trash2, Edit2, Code2, Folder, FilePlus } from 'lucide-react';
 import type { FileMetadata } from '@/types/files';
 
 interface FileTreeProps {
@@ -21,16 +21,36 @@ interface FileTreeProps {
   onFileSelect: (fileId: string) => void;
 }
 
+type TreeNode =
+  | {
+      type: 'folder';
+      name: string;
+      path: string;
+      children: TreeNode[];
+    }
+  | {
+      type: 'file';
+      id: string;
+      name: string;
+      path: string;
+      language: string;
+    };
+
 export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) {
   const [newFileDialogOpen, setNewFileDialogOpen] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [newFileLanguage, setNewFileLanguage] = useState('javascript');
+  const [newFolderDialogOpen, setNewFolderDialogOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
   // Force re-render when the shared Y.Map changes so remote users
   // immediately see new / renamed / deleted files.
   const [version, setVersion] = useState(0);
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>(
+    () => ({ '/': true }),
+  );
 
   useEffect(() => {
     const observer = () => {
@@ -43,13 +63,92 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
     };
   }, [yFiles]);
 
-  const files = Array.from(yFiles.entries()).map(([id, metadata]) => ({
-    id,
-    name: metadata.name,
-    language: metadata.language,
-    createdAt: metadata.createdAt,
-    updatedAt: metadata.updatedAt,
-  }));
+  const files = useMemo(
+    () =>
+      Array.from(yFiles.entries()).map(([id, metadata]) => {
+        const parts = metadata.name.split('/');
+        const folderPath =
+          parts.length > 1 ? parts.slice(0, parts.length - 1).join('/') : '';
+        const fileName = parts[parts.length - 1] || metadata.name;
+
+        return {
+          id,
+          name: fileName,
+          folderPath,
+          language: metadata.language,
+          createdAt: metadata.createdAt,
+          updatedAt: metadata.updatedAt,
+        };
+      }),
+    [yFiles, version],
+  );
+
+  const tree = useMemo(() => {
+    const root: TreeNode = { type: 'folder', name: '', path: '/', children: [] };
+
+    const folderMap = new Map<string, TreeNode>();
+    folderMap.set('/', root);
+
+    for (const file of files) {
+      const fullPath = file.folderPath ? `${file.folderPath}/${file.name}` : file.name;
+      const segments = fullPath.split('/');
+
+      let currentPath = '/';
+      let parent = root;
+
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        const isLast = i === segments.length - 1;
+
+        if (isLast) {
+          // Skip placeholder files used only to create empty folders
+          if (segment === '.gitkeep') {
+            break;
+          }
+          parent.children.push({
+            type: 'file',
+            id: file.id,
+            name: segment,
+            path: fullPath,
+            language: file.language,
+          });
+        } else {
+          currentPath =
+            currentPath === '/' ? `/${segment}` : `${currentPath}/${segment}`;
+
+          let folder = folderMap.get(currentPath);
+          if (!folder) {
+            folder = {
+              type: 'folder',
+              name: segment,
+              path: currentPath,
+              children: [],
+            };
+            parent.children.push(folder);
+            folderMap.set(currentPath, folder);
+          }
+          parent = folder;
+        }
+      }
+    }
+
+    const sortNodes = (nodes: TreeNode[]) => {
+      nodes.sort((a, b) => {
+        if (a.type !== b.type) {
+          return a.type === 'folder' ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+      for (const node of nodes) {
+        if (node.type === 'folder') {
+          sortNodes(node.children);
+        }
+      }
+    };
+
+    sortNodes(root.children);
+    return root;
+  }, [files]);
 
   const handleCreateFile = useCallback(() => {
     if (!newFileName.trim()) return;
@@ -70,6 +169,28 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
     setNewFileLanguage('javascript');
     setNewFileDialogOpen(false);
   }, [yFiles, newFileName, newFileLanguage]);
+
+  const handleCreateFolder = useCallback(() => {
+    if (!newFolderName.trim()) return;
+
+    const folderPath = newFolderName.replace(/\/+$/, '');
+    if (!folderPath) return;
+
+    yFiles.doc?.transact(() => {
+      const fileId = crypto.randomUUID();
+      const now = Date.now();
+      yFiles.set(fileId, {
+        id: fileId,
+        name: `${folderPath}/.gitkeep`,
+        language: 'folder',
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    setNewFolderName('');
+    setNewFolderDialogOpen(false);
+  }, [yFiles, newFolderName]);
 
   const handleDeleteFile = useCallback(
     (fileId: string) => {
@@ -122,19 +243,131 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
     return colors[language] || 'text-gray-400';
   };
 
+  const toggleFolder = useCallback((path: string) => {
+    setExpandedFolders((prev) => ({
+      ...prev,
+      [path]: !prev[path],
+    }));
+  }, []);
+
+  const renderTree = (node: TreeNode, depth = 0) => {
+    if (node.type === 'file') {
+      const isActive = activeFileId === node.id;
+      return (
+        <div
+          key={node.id}
+          className={`group flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
+            isActive ? 'bg-primary/20 text-primary' : 'hover:bg-muted'
+          }`}
+          style={{ paddingLeft: 8 + depth * 12 }}
+          onClick={() => onFileSelect(node.id)}
+        >
+          <File className={`h-4 w-4 ${getLanguageIcon(node.language)}`} />
+          {editingFileId === node.id ? (
+            <Input
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              onBlur={handleFinishRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleFinishRename();
+                if (e.key === 'Escape') {
+                  setEditingFileId(null);
+                  setEditingName('');
+                }
+              }}
+              className="h-6 text-xs flex-1"
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <>
+              <span className="text-sm flex-1 truncate">{node.name}</span>
+              <Badge variant="secondary" className="text-xs h-5">
+                {node.language}
+              </Badge>
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const file = yFiles.get(node.id);
+                    if (file) {
+                      handleStartRename(file);
+                    }
+                  }}
+                >
+                  <Edit2 className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteFile(node.id);
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    const isRoot = node.path === '/';
+    const isExpanded = expandedFolders[node.path] ?? true;
+
+    return (
+      <div key={node.path}>
+        {!isRoot && (
+          <div
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-muted text-sm"
+            style={{ paddingLeft: 8 + depth * 12 }}
+            onClick={() => toggleFolder(node.path)}
+          >
+            <Folder
+              className={`h-4 w-4 ${
+                isExpanded ? 'text-blue-400' : 'text-muted-foreground'
+              }`}
+            />
+            <span className="truncate">{node.name}</span>
+          </div>
+        )}
+        {isExpanded &&
+          node.children.map((child) => renderTree(child, isRoot ? depth : depth + 1))}
+      </div>
+    );
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b">
         <span className="text-sm font-semibold">Files</span>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8 w-8 p-0"
-          onClick={() => setNewFileDialogOpen(true)}
-        >
-          <FolderPlus className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0"
+            onClick={() => setNewFolderDialogOpen(true)}
+            title="New Folder"
+          >
+            <FolderPlus className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0"
+            onClick={() => setNewFileDialogOpen(true)}
+            title="New File"
+          >
+            <FilePlus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* File List */}
@@ -146,70 +379,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
             <span className="text-xs">Create a file to get started</span>
           </div>
         ) : (
-          <div className="space-y-1">
-            {files.map((file) => (
-              <div
-                key={file.id}
-                className={`group flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
-                  activeFileId === file.id
-                    ? 'bg-primary/20 text-primary'
-                    : 'hover:bg-muted'
-                }`}
-                onClick={() => onFileSelect(file.id)}
-              >
-                <File className={`h-4 w-4 ${getLanguageIcon(file.language)}`} />
-
-                {editingFileId === file.id ? (
-                  <Input
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    onBlur={handleFinishRename}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleFinishRename();
-                      if (e.key === 'Escape') {
-                        setEditingFileId(null);
-                        setEditingName('');
-                      }
-                    }}
-                    className="h-6 text-xs flex-1"
-                    autoFocus
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <>
-                    <span className="text-sm flex-1 truncate">{file.name}</span>
-                    <Badge variant="secondary" className="text-xs h-5">
-                      {file.language}
-                    </Badge>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartRename(file);
-                        }}
-                      >
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteFile(file.id);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
+          <div className="space-y-1">{renderTree(tree)}</div>
         )}
       </div>
 
@@ -224,7 +394,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
             <div className="space-y-2">
               <label className="text-sm font-medium">File Name</label>
               <Input
-                placeholder="example.ts"
+                placeholder="folder/example.ts"
                 value={newFileName}
                 onChange={(e) => setNewFileName(e.target.value)}
                 onKeyDown={(e) => {
@@ -259,6 +429,38 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
               Cancel
             </Button>
             <Button onClick={handleCreateFile}>Create File</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* New Folder Dialog */}
+      <Dialog open={newFolderDialogOpen} onOpenChange={setNewFolderDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Folder</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Folder Path</label>
+              <Input
+                placeholder="src/components"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateFolder();
+                }}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setNewFolderDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateFolder}>Create Folder</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
