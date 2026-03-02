@@ -51,6 +51,11 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>(
     () => ({ '/': true }),
   );
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    node: TreeNode | null;
+  } | null>(null);
 
   useEffect(() => {
     const observer = () => {
@@ -261,6 +266,14 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
           }`}
           style={{ paddingLeft: 8 + depth * 12 }}
           onClick={() => onFileSelect(node.id)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setContextMenu({
+              x: e.clientX,
+              y: e.clientY,
+              node,
+            });
+          }}
         >
           <File className={`h-4 w-4 ${getLanguageIcon(node.language)}`} />
           {editingFileId === node.id ? (
@@ -328,6 +341,14 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
             className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-muted text-sm"
             style={{ paddingLeft: 8 + depth * 12 }}
             onClick={() => toggleFolder(node.path)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu({
+                x: e.clientX,
+                y: e.clientY,
+                node,
+              });
+            }}
           >
             <Folder
               className={`h-4 w-4 ${
@@ -344,7 +365,12 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div
+      className="h-full flex flex-col"
+      onClick={() => {
+        if (contextMenu) setContextMenu(null);
+      }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b">
         <span className="text-sm font-semibold">Files</span>
@@ -464,6 +490,168 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {contextMenu && contextMenu.node && (
+        <div
+          className="fixed z-50 min-w-[160px] rounded-md border bg-popover text-popover-foreground shadow-md"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setContextMenu(null);
+          }}
+        >
+          {(() => {
+            const node = contextMenu.node!;
+
+            const getBaseFolder = () => {
+              if (node.type === 'folder') {
+                return node.path === '/' ? '' : node.path.replace(/^\/+/, '');
+              }
+              const parts = node.path.split('/');
+              if (parts.length <= 1) return '';
+              return parts.slice(0, parts.length - 1).join('/').replace(/^\/+/, '');
+            };
+
+            const baseFolder = getBaseFolder();
+
+            const commonItems = (
+              <>
+                <button
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted"
+                  onClick={() => {
+                    setContextMenu(null);
+                    setNewFileName(baseFolder ? `${baseFolder}/` : '');
+                    setNewFileDialogOpen(true);
+                  }}
+                >
+                  New File
+                </button>
+                <button
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted"
+                  onClick={() => {
+                    setContextMenu(null);
+                    setNewFolderName(baseFolder ? `${baseFolder}/` : '');
+                    setNewFolderDialogOpen(true);
+                  }}
+                >
+                  New Folder
+                </button>
+                <div className="h-px bg-border my-1" />
+              </>
+            );
+
+            if (node.type === 'file') {
+              return (
+                <div className="py-1">
+                  {commonItems}
+                  <button
+                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted"
+                    onClick={() => {
+                      setContextMenu(null);
+                      const file = yFiles.get(node.id);
+                      if (file) {
+                        handleStartRename(file);
+                      }
+                    }}
+                  >
+                    Rename
+                  </button>
+                  <button
+                    className="w-full px-3 py-1.5 text-left text-sm text-destructive hover:bg-muted"
+                    onClick={() => {
+                      setContextMenu(null);
+                      handleDeleteFile(node.id);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              );
+            }
+
+            // Folder-specific actions
+            return (
+              <div className="py-1">
+                {commonItems}
+                <button
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted"
+                  onClick={() => {
+                    setContextMenu(null);
+                    const currentFolder =
+                      node.path === '/' ? '' : node.path.replace(/^\/+/, '');
+                    const newName = window.prompt('Rename folder', currentFolder);
+                    if (!newName || newName === currentFolder) return;
+
+                    const normalizedOld = currentFolder;
+                    const normalizedNew = newName.replace(/\/+$/, '');
+
+                    yFiles.doc?.transact(() => {
+                      for (const [id, metadata] of Array.from(yFiles.entries())) {
+                        const name = metadata.name;
+                        if (
+                          !normalizedOld ||
+                          !(
+                            name === normalizedOld ||
+                            name.startsWith(`${normalizedOld}/`)
+                          )
+                        ) {
+                          continue;
+                        }
+
+                        const suffix =
+                          name.length === normalizedOld.length
+                            ? ''
+                            : name.slice(normalizedOld.length + 1);
+                        const updatedName = suffix
+                          ? `${normalizedNew}/${suffix}`
+                          : normalizedNew;
+
+                        yFiles.set(id, {
+                          ...metadata,
+                          name: updatedName,
+                          updatedAt: Date.now(),
+                        });
+                      }
+                    });
+                  }}
+                >
+                  Rename
+                </button>
+                <button
+                  className="w-full px-3 py-1.5 text-left text-sm text-destructive hover:bg-muted"
+                  onClick={() => {
+                    setContextMenu(null);
+                    const currentFolder =
+                      node.path === '/' ? '' : node.path.replace(/^\/+/, '');
+                    if (!currentFolder) return;
+
+                    if (
+                      !window.confirm(
+                        `Delete folder "${currentFolder}" and all its contents?`,
+                      )
+                    ) {
+                      return;
+                    }
+
+                    yFiles.doc?.transact(() => {
+                      for (const [id, metadata] of Array.from(yFiles.entries())) {
+                        const name = metadata.name;
+                        if (
+                          name === currentFolder ||
+                          name.startsWith(`${currentFolder}/`)
+                        ) {
+                          yFiles.delete(id);
+                        }
+                      }
+                    });
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }
