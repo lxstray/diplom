@@ -23,9 +23,13 @@
 |-----------|------------|
 | Framework | Next.js App Router |
 | Language | TypeScript (strict mode) |
-| Styling | Tailwind CSS + shadcn/ui |
+| Styling | **Tailwind CSS v4** + **shadcn/ui** (required) |
 | Editor | Monaco Editor + y-monaco |
 | State | Yjs CRDT (editor state only) |
+
+**UI Components:** Always use shadcn/ui components for UI elements (buttons, inputs, dialogs, etc.). Do not create custom styled components when shadcn/ui provides an equivalent.
+
+**Theme:** Dark theme by default. Use Tailwind's dark mode variant (`dark:`) for theme-specific styles.
 
 ### Backend
 
@@ -196,6 +200,65 @@ AI assistants MUST NOT introduce:
 - GraphQL (REST + WebSocket architecture)
 - Alternative editors (Monaco is required)
 - Alternative auth providers (Supabase Auth only)
+- Custom UI components when shadcn/ui equivalents exist
+- Other CSS frameworks (styled-components, emotion, etc.)
+
+---
+
+## UI Development Guidelines
+
+### shadcn/ui Usage
+
+**Always prefer shadcn/ui components:**
+
+```typescript
+// ✅ Good - using shadcn/ui
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+
+// ❌ Bad - creating custom styled elements
+<button className="px-4 py-2 bg-blue-500 rounded">Click</button>
+```
+
+**Available components:**
+- `Button` - Buttons with variants (default, destructive, outline, secondary, ghost, link)
+- `Input` - Form inputs
+- `Badge` - Status badges
+- `Select` - Dropdown selects
+- `Dialog` - Modal dialogs
+- `Card` - Card containers
+- `Label` - Form labels
+- `Textarea` - Multi-line inputs
+
+### Adding New Components
+
+```bash
+cd frontend
+npx shadcn@latest add <component-name>
+```
+
+### Theme
+
+- **Dark theme by default** - Add `className="dark"` to `<html>` element
+- Use CSS variables from `globals.css` for colors
+- Use Tailwind's `dark:` variant for theme-specific overrides
+
+### Color Reference
+
+```css
+/* Use these Tailwind classes */
+bg-background      /* Main background */
+bg-card            /* Card/panel backgrounds */
+bg-primary         /* Primary actions */
+bg-destructive     /* Danger actions */
+bg-muted           /* Subtle backgrounds */
+
+text-foreground    /* Main text */
+text-muted-foreground  /* Secondary text */
+
+border-border      /* Borders */
+```
 
 ---
 
@@ -261,6 +324,102 @@ import { MonacoBinding } from 'y-monaco'
 2. **Realtime Stability** — Yjs sync must never break
 3. **Security** — Always validate, never trust client
 4. **Simplicity** — Avoid unnecessary abstraction layers
+
+---
+
+## Version Roadmap
+
+### Version 0 — MVP (Local Development) ✅
+
+**Goal:** Basic collaborative editing working locally
+
+**Features:**
+- [x] Fastify backend server with WebSocket support
+- [x] Next.js frontend with Monaco Editor
+- [x] Hocuspocus server for Yjs synchronization
+- [x] Basic room creation/join (no auth)
+- [x] Real-time text synchronization between clients
+- [ ] Simple file tree (single file)
+
+**Infrastructure:**
+- [x] Local development setup
+- [x] Docker Compose for local services
+- [ ] Local Supabase (no auth initially)
+- [x] No Judge0 integration
+- [x] No WebRTC
+
+---
+
+### Version 1 — Authentication + Multi-file
+
+**Goal:** Secure collaboration with project management
+
+**Features:**
+- [ ] Supabase Auth integration
+- [ ] JWT validation on backend
+- [ ] Multi-file project workspace
+- [ ] Project CRUD operations
+- [ ] Room access control
+- [ ] User presence indicators
+
+**Infrastructure:**
+- Supabase Cloud or self-hosted
+- Prisma ORM setup
+- Database schema for users/projects/rooms
+
+---
+
+### Version 2 — Code Execution
+
+**Goal:** Run code securely from the editor
+
+**Features:**
+- [ ] Judge0 integration
+- [ ] Backend proxy for execution requests
+- [ ] Rate limiting
+- [ ] Execution history
+- [ ] Multiple language support
+- [ ] Console output display
+
+**Infrastructure:**
+- Judge0 Docker container
+- Execution queue management
+
+---
+
+### Version 3 — Communication
+
+**Goal:** Full team collaboration experience
+
+**Features:**
+- [ ] WebRTC peer-to-peer video/audio
+- [ ] Chat functionality
+- [ ] Screen sharing
+- [ ] Cursor presence visualization
+- [ ] User avatars
+
+**Infrastructure:**
+- WebRTC signaling server
+- STUN/TURN configuration
+
+---
+
+### Version 4 — Production Ready
+
+**Goal:** Deployment and polish
+
+**Features:**
+- [ ] Full authentication flow
+- [ ] Project sharing & permissions
+- [ ] Version history
+- [ ] Error handling & logging
+- [ ] Performance optimization
+- [ ] Security hardening
+
+**Infrastructure:**
+- Docker Compose for all services
+- Production deployment configs
+- CI/CD pipeline
 
 ---
 
