@@ -39,21 +39,25 @@ export function useCollaboration({
   const [error, setError] = useState<string | null>(null);
   const [peers, setPeers] = useState<{ id: string; name: string }[]>([]);
 
-  // Initialize Y.Doc once
-  useEffect(() => {
-    if (!ydocRef.current) {
-      ydocRef.current = new Y.Doc();
-      setYdoc(ydocRef.current);
-    }
-  }, []);
-
   // Setup/cleanup provider when roomId changes
   useEffect(() => {
-    if (!roomId || !ydocRef.current) {
+    if (!roomId) {
+      // Leaving room: reset state
+      ydocRef.current = null;
+      setYdoc(null);
+      setProvider(null);
+      setYFiles(null);
+      setYFileTexts(null);
+      setConnected(false);
+      setError(null);
+      setPeers([]);
       return;
     }
 
-    const ydocInstance = ydocRef.current;
+    // New room: create a fresh Y.Doc for isolation
+    const ydocInstance = new Y.Doc();
+    ydocRef.current = ydocInstance;
+    setYdoc(ydocInstance);
 
     let cancelled = false;
 

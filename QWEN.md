@@ -339,7 +339,7 @@ import { MonacoBinding } from 'y-monaco'
 - [x] Hocuspocus server for Yjs synchronization
 - [x] Basic room creation/join (no auth)
 - [x] Real-time text synchronization between clients
-- [ ] Simple file tree (single file)
+- [x] Simple file tree (single file)
 
 **Infrastructure:**
 - [x] Local development setup
@@ -355,12 +355,12 @@ import { MonacoBinding } from 'y-monaco'
 **Goal:** Secure collaboration with project management
 
 **Features:**
-- [ ] Supabase Auth integration
-- [ ] JWT validation on backend
-- [ ] Multi-file project workspace
-- [ ] Project CRUD operations
-- [ ] Room access control
-- [ ] User presence indicators
+- [x] Supabase Auth integration
+- [x] JWT validation on backend
+- [x] Multi-file project workspace
+- [x] Project CRUD operations
+- [x] Room access control
+- [x] User presence indicators
 
 **Infrastructure:**
 - Supabase Cloud or self-hosted
@@ -374,6 +374,7 @@ import { MonacoBinding } from 'y-monaco'
 **Goal:** Run code securely from the editor
 
 **Features:**
+- [ ] save prev rooms/projects
 - [ ] Judge0 integration
 - [ ] Backend proxy for execution requests
 - [ ] Rate limiting
@@ -394,9 +395,10 @@ import { MonacoBinding } from 'y-monaco'
 **Features:**
 - [ ] WebRTC peer-to-peer video/audio
 - [ ] Chat functionality
-- [ ] Screen sharing
+- [ ] ?Screen sharing
 - [ ] Cursor presence visualization
 - [ ] User avatars
+- [ ] Leetcode analoge
 
 **Infrastructure:**
 - WebRTC signaling server
