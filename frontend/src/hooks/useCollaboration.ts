@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import * as Y from 'yjs';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import { supabase } from '@/lib/supabaseClient';
+import type { FileMetadata } from '@/types/files';
 
 const COLLAB_URL =
   process.env.NEXT_PUBLIC_COLLAB_URL || 'ws://localhost:3002';
@@ -17,6 +18,7 @@ export interface UseCollaborationResult {
   ydoc: Y.Doc | null;
   provider: HocuspocusProvider | null;
   yText: Y.Text | null;
+  yFiles: Y.Map<FileMetadata> | null;
   connected: boolean;
   error: string | null;
   peers: { id: string; name: string }[];
@@ -28,10 +30,11 @@ export function useCollaboration({
 }: UseCollaborationOptions): UseCollaborationResult {
   const ydocRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<HocuspocusProvider | null>(null);
-  
+
   const [ydoc, setYdoc] = useState<Y.Doc | null>(null);
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
   const [yText, setYText] = useState<Y.Text | null>(null);
+  const [yFiles, setYFiles] = useState<Y.Map<FileMetadata> | null>(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [peers, setPeers] = useState<{ id: string; name: string }[]>([]);
@@ -96,13 +99,17 @@ export function useCollaboration({
       setProvider(hocuspocusProvider);
 
       // Presence: advertise local user
-      hocuspocusProvider.awareness.setLocalStateField('user', {
-        id: data.session?.user.id ?? 'anonymous',
-        name: userName,
-      });
+      if (hocuspocusProvider.awareness) {
+        hocuspocusProvider.awareness.setLocalStateField('user', {
+          id: data.session?.user.id ?? 'anonymous',
+          name: userName,
+        });
+      }
 
       // Track peers
       const handleAwarenessUpdate = () => {
+        if (!hocuspocusProvider.awareness) return;
+        
         const states = Array.from(
           hocuspocusProvider.awareness.getStates().entries(),
         ).map(([clientId, state]) => ({
@@ -112,12 +119,18 @@ export function useCollaboration({
         setPeers(states);
       };
 
-      hocuspocusProvider.awareness.on('change', handleAwarenessUpdate);
+      if (hocuspocusProvider.awareness) {
+        hocuspocusProvider.awareness.on('change', handleAwarenessUpdate);
+      }
       handleAwarenessUpdate();
 
       // Get or create the shared text type
       const sharedText = ydocInstance.getText('fileContent');
       setYText(sharedText);
+
+      // Get or create the files map for multi-file support
+      const filesMap = ydocInstance.getMap<FileMetadata>('files');
+      setYFiles(filesMap as unknown as Y.Map<FileMetadata>);
     };
 
     setupProvider();
@@ -134,5 +147,5 @@ export function useCollaboration({
     };
   }, [roomId, userName]);
 
-  return { ydoc, provider, yText, connected, error, peers };
+  return { ydoc, provider, yText, yFiles, connected, error, peers };
 }

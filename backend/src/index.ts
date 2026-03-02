@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { Hocuspocus } from '@hocuspocus/server';
 import { requireAuth } from './auth.js';
 import { supabaseAdmin } from './supabase.js';
+import { projectRoutes } from './modules/projects/project.routes.js';
 
 const hocuspocus = new Hocuspocus({
   async onConnect(data) {
@@ -53,24 +54,8 @@ async function buildHttpServer() {
     return { status: 'ok', timestamp: new Date().toISOString() };
   });
 
-  // Auth-protected room API
-  fastify.post(
-    '/api/rooms',
-    { preHandler: requireAuth },
-    async (request, reply) => {
-      const roomId = Math.random().toString(36).substring(2, 8);
-      return { roomId, userId: request.authUser?.id };
-    },
-  );
-
-  fastify.get(
-    '/api/rooms/:roomId',
-    { preHandler: requireAuth },
-    async (request, reply) => {
-      const { roomId } = request.params as { roomId: string };
-      return { roomId, exists: true, userId: request.authUser?.id };
-    },
-  );
+  // Register project and room routes
+  await fastify.register(projectRoutes);
 
   return fastify;
 }

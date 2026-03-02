@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useCollaboration } from '@/hooks/useCollaboration';
+import { useFileContent } from '@/hooks/useFileContent';
+import { FileTree } from '@/components/file-tree/FileTree';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +25,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabaseClient';
+import { Users, FolderOpen } from 'lucide-react';
+import type * as Y from 'yjs';
 
 const MonacoEditor = dynamic(() => import('@/components/MonacoEditor'), {
   ssr: false,
@@ -36,6 +40,7 @@ const MonacoEditor = dynamic(() => import('@/components/MonacoEditor'), {
 export default function EditorPage() {
   const [roomId, setRoomId] = useState('');
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
+  const [currentProject, setCurrentProject] = useState<string | null>(null);
   const [userName, setUserName] = useState('User');
   const [language, setLanguage] = useState('javascript');
   const [authLoading, setAuthLoading] = useState(true);
@@ -45,11 +50,38 @@ export default function EditorPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
 
-  const { yText, connected, error } = useCollaboration({
+  const { yText, yFiles, connected, error, peers } = useCollaboration({
     roomId: currentRoom || '',
     userName,
   });
+
+  const { content, updateContent, currentFile } = useFileContent({
+    yText,
+    yFiles,
+    activeFileId,
+  });
+
+  // Update language when active file changes
+  useEffect(() => {
+    if (currentFile?.language) {
+      setLanguage(currentFile.language);
+    }
+  }, [currentFile?.language]);
+
+  // Auto-select first file when joining room
+  useEffect(() => {
+    if (yFiles && !activeFileId) {
+      const firstFile = Array.from(yFiles.entries())[0];
+      if (firstFile) {
+        setActiveFileId(firstFile[0]);
+      }
+    }
+  }, [yFiles, activeFileId]);
 
   useEffect(() => {
     const {
@@ -166,7 +198,65 @@ export default function EditorPage() {
 
   const handleLeaveRoom = () => {
     setCurrentRoom(null);
+    setCurrentProject(null);
     setRoomId('');
+    setActiveFileId(null);
+  };
+
+  const handleCreateProject = async () => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken) {
+        setAuthError('You must be signed in to create a project.');
+        return;
+      }
+
+      if (!newProjectName.trim()) {
+        setAuthError('Project name is required.');
+        return;
+      }
+
+      const response = await fetch('http://localhost:3001/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ name: newProjectName.trim() }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || `Failed to create project (${response.status})`);
+      }
+
+      const { project } = await response.json();
+      setCurrentProject(project.id);
+      setNewProjectName('');
+      setNewProjectDialogOpen(false);
+      
+      // Create initial room for the project
+      const roomResponse = await fetch(`http://localhost:3001/api/projects/${project.id}/rooms`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ projectId: project.id, name: 'Main Room' }),
+      });
+
+      if (roomResponse.ok) {
+        const { room } = await roomResponse.json();
+        setCurrentRoom(room.id);
+      }
+    } catch (err) {
+      console.error('Failed to create project:', err);
+      setAuthError(
+        err instanceof Error ? err.message : 'Failed to create project.',
+      );
+    }
   };
 
   return (
@@ -178,6 +268,14 @@ export default function EditorPage() {
 
           {!currentRoom ? (
             <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setNewProjectDialogOpen(true)}
+                size="sm"
+                variant="default"
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                New Project
+              </Button>
               <Input
                 type="text"
                 placeholder="Enter room ID"
@@ -188,17 +286,28 @@ export default function EditorPage() {
               <Button onClick={handleJoinRoom} size="sm">
                 Join
               </Button>
-              <Button onClick={handleCreateRoom} size="sm" variant="default">
-                Create Room
-              </Button>
             </div>
           ) : (
             <div className="flex items-center gap-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+              >
+                <FolderOpen className="h-4 w-4" />
+              </Button>
               <span className="text-sm text-muted-foreground">Room:</span>
               <span className="font-semibold">{currentRoom}</span>
               <Badge variant={connected ? "default" : "secondary"}>
                 {connected ? 'Connected' : 'Connecting...'}
               </Badge>
+              {peers.length > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Users className="h-3 w-3" />
+                  <span>{peers.length}</span>
+                </div>
+              )}
               <Button onClick={handleLeaveRoom} size="sm" variant="destructive">
                 Leave
               </Button>
@@ -208,6 +317,11 @@ export default function EditorPage() {
 
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
+            {currentFile && (
+              <span className="text-sm text-muted-foreground">
+                Editing: {currentFile.name}
+              </span>
+            )}
             <Select value={language} onValueChange={setLanguage}>
               <SelectTrigger className="w-32 h-9">
                 <SelectValue placeholder="Language" />
@@ -378,18 +492,91 @@ export default function EditorPage() {
         </div>
       )}
 
-      {/* Editor */}
-      <main className="flex-1 overflow-hidden p-4">
-        {currentRoom ? (
-          <div className="h-full rounded-md border overflow-hidden">
-            <MonacoEditor yText={yText} language={language} />
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-lg">
-            Create or join a room to start collaborative coding
-          </div>
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* File Tree Sidebar */}
+        {currentRoom && sidebarOpen && (
+          <aside className="w-64 border-r bg-card flex-shrink-0">
+            {yFiles && (
+              <FileTree
+                yFiles={yFiles}
+                activeFileId={activeFileId}
+                onFileSelect={setActiveFileId}
+              />
+            )}
+          </aside>
         )}
-      </main>
+
+        {/* Editor */}
+        <main className="flex-1 overflow-hidden p-4">
+          {currentRoom ? (
+            yFiles && activeFileId ? (
+              <div className="h-full rounded-md border overflow-hidden">
+                <MonacoEditor
+                  yText={yText}
+                  language={language}
+                  value={content}
+                  onValueChange={updateContent}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-lg">
+                Create a file to start editing
+              </div>
+            )
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground text-lg">
+              Create or join a room to start collaborative coding
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* New Project Dialog */}
+      <Dialog open={newProjectDialogOpen} onOpenChange={setNewProjectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+            <DialogDescription>
+              Give your new project a descriptive name.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 mt-4">
+            <Input
+              placeholder="My awesome project"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  void handleCreateProject();
+                }
+              }}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setNewProjectDialogOpen(false);
+                setNewProjectName('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                void handleCreateProject();
+              }}
+            >
+              Create Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
