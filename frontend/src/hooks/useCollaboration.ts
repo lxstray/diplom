@@ -17,8 +17,8 @@ export interface UseCollaborationOptions {
 export interface UseCollaborationResult {
   ydoc: Y.Doc | null;
   provider: HocuspocusProvider | null;
-  yText: Y.Text | null;
   yFiles: Y.Map<FileMetadata> | null;
+  yFileTexts: Y.Map<Y.Text> | null;
   connected: boolean;
   error: string | null;
   peers: { id: string; name: string }[];
@@ -33,8 +33,8 @@ export function useCollaboration({
 
   const [ydoc, setYdoc] = useState<Y.Doc | null>(null);
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
-  const [yText, setYText] = useState<Y.Text | null>(null);
   const [yFiles, setYFiles] = useState<Y.Map<FileMetadata> | null>(null);
+  const [yFileTexts, setYFileTexts] = useState<Y.Map<Y.Text> | null>(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [peers, setPeers] = useState<{ id: string; name: string }[]>([]);
@@ -124,13 +124,13 @@ export function useCollaboration({
       }
       handleAwarenessUpdate();
 
-      // Get or create the shared text type
-      const sharedText = ydocInstance.getText('fileContent');
-      setYText(sharedText);
-
       // Get or create the files map for multi-file support
       const filesMap = ydocInstance.getMap<FileMetadata>('files');
       setYFiles(filesMap as unknown as Y.Map<FileMetadata>);
+
+      // Map of fileId -> Y.Text for per-file contents
+      const fileTextsMap = ydocInstance.getMap<Y.Text>('fileTexts');
+      setYFileTexts(fileTextsMap as unknown as Y.Map<Y.Text>);
     };
 
     setupProvider();
@@ -147,5 +147,5 @@ export function useCollaboration({
     };
   }, [roomId, userName]);
 
-  return { ydoc, provider, yText, yFiles, connected, error, peers };
+  return { ydoc, provider, yFiles, yFileTexts, connected, error, peers };
 }

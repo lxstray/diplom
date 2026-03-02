@@ -3,6 +3,7 @@ import { prisma } from '../../services/prisma.js';
 export interface CreateProjectInput {
   name: string;
   ownerId: string;
+  ownerEmail: string;
 }
 
 export interface ProjectWithOwner {
@@ -21,7 +22,15 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectW
   const project = await prisma.project.create({
     data: {
       name: input.name,
-      ownerId: input.ownerId,
+      owner: {
+        connectOrCreate: {
+          where: { id: input.ownerId },
+          create: {
+            id: input.ownerId,
+            email: input.ownerEmail,
+          },
+        },
+      },
     },
     include: {
       owner: {

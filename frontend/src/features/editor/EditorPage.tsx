@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useFileContent } from '@/hooks/useFileContent';
@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabaseClient';
 import { Users, FolderOpen } from 'lucide-react';
-import type * as Y from 'yjs';
+import * as Y from 'yjs';
 
 const MonacoEditor = dynamic(() => import('@/components/MonacoEditor'), {
   ssr: false,
@@ -55,16 +55,35 @@ export default function EditorPage() {
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
 
-  const { yText, yFiles, connected, error, peers } = useCollaboration({
+  const { ydoc, yFiles, yFileTexts, connected, error, peers } = useCollaboration({
     roomId: currentRoom || '',
     userName,
   });
 
-  const { content, updateContent, currentFile } = useFileContent({
-    yText,
+  const { currentFile } = useFileContent({
     yFiles,
     activeFileId,
   });
+
+  // Get or create a Y.Text for the active file so each file
+  // has its own collaborative content.
+  const activeYText = useMemo(() => {
+    if (!ydoc || !yFileTexts || !activeFileId) {
+      return null;
+    }
+
+    let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
+
+    if (!text) {
+      const newText = new Y.Text();
+      ydoc.transact(() => {
+        yFileTexts.set(activeFileId, newText);
+      });
+      text = newText;
+    }
+
+    return text;
+  }, [ydoc, yFileTexts, activeFileId]);
 
   // Update language when active file changes
   useEffect(() => {
@@ -510,13 +529,11 @@ export default function EditorPage() {
         {/* Editor */}
         <main className="flex-1 overflow-hidden p-4">
           {currentRoom ? (
-            yFiles && activeFileId ? (
+            yFiles && activeFileId && activeYText ? (
               <div className="h-full rounded-md border overflow-hidden">
                 <MonacoEditor
-                  yText={yText}
+                  yText={activeYText}
                   language={language}
-                  value={content}
-                  onValueChange={updateContent}
                 />
               </div>
             ) : (

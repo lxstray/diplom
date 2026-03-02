@@ -58,15 +58,11 @@ if (typeof window !== 'undefined') {
 interface MonacoEditorProps {
   yText: Y.Text | null;
   language?: string;
-  value?: string;
-  onValueChange?: (value: string) => void;
 }
 
 export default function MonacoEditor({
   yText,
   language = 'javascript',
-  value = '',
-  onValueChange,
 }: MonacoEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -76,8 +72,6 @@ export default function MonacoEditor({
     if (!containerRef.current) return;
 
     const editor = monaco.editor.create(containerRef.current, {
-      // Initial value comes from Yjs binding; keep local value only as a fallback.
-      value,
       language,
       theme: 'vs-dark',
       automaticLayout: true,
@@ -101,7 +95,7 @@ export default function MonacoEditor({
     if (!editorRef.current || !yText) return;
 
     const editor = editorRef.current;
-    
+
     // Dispose previous binding if exists
     if (bindingRef.current) {
       bindingRef.current.destroy();
@@ -110,21 +104,11 @@ export default function MonacoEditor({
     const binding = new MonacoBinding(
       yText,
       editor.getModel()!,
-      new Set([editor as any])
+      new Set([editor as any]),
     );
 
     bindingRef.current = binding;
-
-    // Listen for changes
-    const disposable = editor.onDidChangeModelContent(() => {
-      const newValue = editor.getValue();
-      onValueChange?.(newValue);
-    });
-
-    return () => {
-      disposable.dispose();
-    };
-  }, [yText, onValueChange]);
+  }, [yText]);
 
   useEffect(() => {
     if (!editorRef.current || !language) return;

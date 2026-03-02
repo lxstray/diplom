@@ -41,6 +41,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         const project = await projectService.createProject({
           name: parsed.name,
           ownerId: request.authUser!.id,
+          ownerEmail: request.authUser!.email ?? '',
         });
         return { project };
       } catch (error) {

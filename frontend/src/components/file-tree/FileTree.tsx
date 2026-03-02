@@ -1,7 +1,7 @@
 'use client';
 
 import * as Y from 'yjs';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -27,6 +27,21 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
   const [newFileLanguage, setNewFileLanguage] = useState('javascript');
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+
+  // Force re-render when the shared Y.Map changes so remote users
+  // immediately see new / renamed / deleted files.
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    const observer = () => {
+      setVersion((v) => v + 1);
+    };
+
+    yFiles.observe(observer);
+    return () => {
+      yFiles.unobserve(observer);
+    };
+  }, [yFiles]);
 
   const files = Array.from(yFiles.entries()).map(([id, metadata]) => ({
     id,
