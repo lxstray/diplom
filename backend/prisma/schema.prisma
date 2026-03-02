@@ -30,7 +30,13 @@ model Room {
   name      String
   projectId String
   project   Project  @relation(fields: [projectId], references: [id])
+  access    RoomAccessLevel @default(OWNER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum RoomAccessLevel {
+  OWNER
+  ANYONE_WITH_LINK
 }
 

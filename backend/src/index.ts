@@ -1,9 +1,9 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { Hocuspocus } from '@hocuspocus/server';
-import { requireAuth } from './auth.js';
 import { supabaseAdmin } from './supabase.js';
 import { projectRoutes } from './modules/projects/project.routes.js';
+import * as roomService from './modules/projects/room.service.js';
 
 const hocuspocus = new Hocuspocus({
   async onConnect(data) {
@@ -25,8 +25,36 @@ const hocuspocus = new Hocuspocus({
         return;
       }
 
+      const roomId = data.documentName as string | undefined;
+      if (!roomId) {
+        console.warn('[hocuspocus] Missing room id (documentName), closing.');
+        (anyData.connection as any)?.close?.();
+        return;
+      }
+
+      try {
+        const { canAccess } = await roomService.canAccessRoom(
+          roomId,
+          userData.user.id,
+        );
+
+        if (!canAccess) {
+          console.warn(
+            `[hocuspocus] Access denied. Room: ${roomId}, user: ${userData.user.id}`,
+          );
+          (anyData.connection as any)?.close?.();
+          return;
+        }
+      } catch (err) {
+        console.warn(
+          `[hocuspocus] Error while checking room access, closing. Room: ${roomId}, user: ${userData.user.id}`,
+        );
+        (anyData.connection as any)?.close?.();
+        return;
+      }
+
       console.log(
-        `Client authenticated. Room: ${data.documentName}, user: ${userData.user.id}`,
+        `Client authenticated and authorized. Room: ${roomId}, user: ${userData.user.id}`,
       );
     } catch (err) {
       console.warn('[hocuspocus] Invalid token, closing connection.');

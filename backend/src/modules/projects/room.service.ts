@@ -9,6 +9,7 @@ export interface RoomWithProject {
   id: string;
   name: string;
   projectId: string;
+  access: 'OWNER' | 'ANYONE_WITH_LINK';
   project: {
     id: string;
     name: string;
@@ -89,11 +90,32 @@ export async function canAccessRoom(
     return { canAccess: false, room: null };
   }
 
-  // Only project owner can access rooms (can be extended for team collaboration)
   const isOwner = room.project.ownerId === userId;
+  const anyoneWithLink = room.access === 'ANYONE_WITH_LINK';
 
   return {
-    canAccess: isOwner,
-    room: isOwner ? room : null,
+    canAccess: isOwner || anyoneWithLink,
+    room: isOwner || anyoneWithLink ? room : null,
   };
+}
+
+export async function updateRoomAccess(
+  roomId: string,
+  access: 'OWNER' | 'ANYONE_WITH_LINK',
+): Promise<RoomWithProject> {
+  const room = await prisma.room.update({
+    where: { id: roomId },
+    data: { access },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          ownerId: true,
+        },
+      },
+    },
+  });
+
+  return room;
 }

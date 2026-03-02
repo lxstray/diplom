@@ -242,6 +242,46 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   );
 
+  // Update room access level (owner only)
+  fastify.patch(
+    '/api/rooms/:roomId/access',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      try {
+        const params = roomParamsSchema.parse(request.params);
+        const body = z
+          .object({
+            access: z.enum(['OWNER', 'ANYONE_WITH_LINK']),
+          })
+          .parse(request.body);
+
+        const room = await roomService.getRoomById(params.roomId);
+
+        if (!room) {
+          reply.code(404).send({ error: 'Room not found' });
+          return;
+        }
+
+        if (room.project.ownerId !== request.authUser!.id) {
+          reply.code(403).send({ error: 'Only the project owner can change room access.' });
+          return;
+        }
+
+        const updated = await roomService.updateRoomAccess(params.roomId, body.access);
+        return { room: updated };
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          reply.code(400).send({ error: 'Validation failed', details: error.errors });
+          return;
+        }
+        fastify.log.error({ error: 'Failed to update room access' }, (error as Error).message);
+        reply.code(500).send({ error: 'Failed to update room access' });
+      }
+    },
+  );
+
   // Delete room
   fastify.delete(
     '/api/rooms/:roomId',

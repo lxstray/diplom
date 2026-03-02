@@ -25,7 +25,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, FolderOpen } from 'lucide-react';
+import { Users, FolderOpen, ShieldCheck, Copy } from 'lucide-react';
 import * as Y from 'yjs';
 
 const MonacoEditor = dynamic(() => import('@/components/MonacoEditor'), {
@@ -54,6 +54,15 @@ export default function EditorPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
+  const [roomAccessDialogOpen, setRoomAccessDialogOpen] = useState(false);
+  const [roomAccessLoading, setRoomAccessLoading] = useState(false);
+  const [roomAccessError, setRoomAccessError] = useState<string | null>(null);
+  const [roomProjectName, setRoomProjectName] = useState<string | null>(null);
+  const [roomAccessLevel, setRoomAccessLevel] = useState<'OWNER' | 'ANYONE_WITH_LINK'>(
+    'OWNER',
+  );
+  const [roomAccessSaving, setRoomAccessSaving] = useState(false);
+  const [roomIsOwner, setRoomIsOwner] = useState(false);
 
   const { ydoc, yFiles, yFileTexts, connected, error, peers } = useCollaboration({
     roomId: currentRoom || '',
@@ -178,8 +187,45 @@ export default function EditorPage() {
   };
 
   const handleJoinRoom = async () => {
-    if (roomId.trim()) {
-      setCurrentRoom(roomId.trim());
+    const targetRoomId = roomId.trim();
+    if (!targetRoomId) return;
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken) {
+        setAuthError('You must be signed in to join a room.');
+        return;
+      }
+
+      const response = await fetch(
+        `http://localhost:3001/api/rooms/${targetRoomId}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(
+          body.error || `Failed to join room (${response.status})`,
+        );
+      }
+
+      const { room } = await response.json();
+      setCurrentRoom(room.id);
+      setCurrentProject(room.projectId);
+      setActiveFileId(null);
+      setRoomId(room.id);
+    } catch (err) {
+      console.error('Failed to join room:', err);
+      setAuthError(
+        err instanceof Error ? err.message : 'Failed to join room.',
+      );
     }
   };
 
@@ -220,6 +266,47 @@ export default function EditorPage() {
     setCurrentProject(null);
     setRoomId('');
     setActiveFileId(null);
+  };
+
+  const handleOpenRoomAccess = async () => {
+    if (!currentRoom) return;
+    setRoomAccessDialogOpen(true);
+    setRoomAccessLoading(true);
+    setRoomAccessError(null);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken) {
+        setRoomAccessError('You must be signed in to view room access.');
+        return;
+      }
+
+      const response = await fetch(`http://localhost:3001/api/rooms/${currentRoom}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || `Failed to load room access (${response.status})`);
+      }
+
+      const { room } = await response.json();
+      setRoomProjectName(room?.project?.name ?? null);
+      setRoomAccessLevel(room?.access ?? 'OWNER');
+      setRoomIsOwner(room?.project?.ownerId === userId);
+    } catch (err) {
+      console.error('Failed to load room access:', err);
+      setRoomAccessError(
+        err instanceof Error ? err.message : 'Failed to load room access.',
+      );
+    } finally {
+      setRoomAccessLoading(false);
+    }
   };
 
   const handleCreateProject = async () => {
@@ -327,6 +414,15 @@ export default function EditorPage() {
                   <span>{peers.length}</span>
                 </div>
               )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 px-2 text-xs"
+                onClick={handleOpenRoomAccess}
+              >
+                <ShieldCheck className="h-3 w-3 mr-1" />
+                Access
+              </Button>
               <Button onClick={handleLeaveRoom} size="sm" variant="destructive">
                 Leave
               </Button>
@@ -590,6 +686,204 @@ export default function EditorPage() {
               }}
             >
               Create Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Room Access Dialog */}
+      <Dialog open={roomAccessDialogOpen} onOpenChange={setRoomAccessDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Room access</DialogTitle>
+            <DialogDescription>
+              Control who can open and collaborate in this room.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-4">
+            <div className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">
+                Room ID
+              </span>
+              <div className="flex items-center gap-2">
+                <code className="px-2 py-1 rounded bg-muted text-xs flex-1 break-all">
+                  {currentRoom ?? '—'}
+                </code>
+                {currentRoom && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="h-8 w-8"
+                    onClick={() => {
+                      navigator.clipboard
+                        .writeText(currentRoom)
+                        .catch(() => undefined);
+                    }}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">
+                Project
+              </span>
+              <div className="text-sm">
+                {roomAccessLoading
+                  ? 'Loading...'
+                  : roomProjectName ?? 'Unknown project'}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Who can access this room?
+                </span>
+                {!roomIsOwner && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Only the project owner can change this.
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={!roomIsOwner || roomAccessSaving}
+                  onClick={async () => {
+                    if (!currentRoom || roomAccessLevel === 'OWNER') return;
+                    setRoomAccessSaving(true);
+                    setRoomAccessError(null);
+                    try {
+                      const { data: sessionData } = await supabase.auth.getSession();
+                      const accessToken = sessionData.session?.access_token;
+                      if (!accessToken) {
+                        setRoomAccessError('You must be signed in to change access.');
+                        return;
+                      }
+
+                      const res = await fetch(
+                        `http://localhost:3001/api/rooms/${currentRoom}/access`,
+                        {
+                          method: 'PATCH',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${accessToken}`,
+                          },
+                          body: JSON.stringify({ access: 'OWNER' }),
+                        },
+                      );
+
+                      if (!res.ok) {
+                        const body = await res.json().catch(() => ({}));
+                        throw new Error(
+                          body.error ||
+                            `Failed to update room access (${res.status})`,
+                        );
+                      }
+
+                      setRoomAccessLevel('OWNER');
+                    } catch (err) {
+                      setRoomAccessError(
+                        err instanceof Error
+                          ? err.message
+                          : 'Failed to update room access.',
+                      );
+                    } finally {
+                      setRoomAccessSaving(false);
+                    }
+                  }}
+                  className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                    roomAccessLevel === 'OWNER'
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-background hover:bg-muted/60'
+                  } ${!roomIsOwner ? 'opacity-70 cursor-not-allowed' : ''}`}
+                >
+                  <div className="font-medium mb-1">Owner only</div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Only the project owner can join this room.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!roomIsOwner || roomAccessSaving}
+                  onClick={async () => {
+                    if (!currentRoom || roomAccessLevel === 'ANYONE_WITH_LINK') return;
+                    setRoomAccessSaving(true);
+                    setRoomAccessError(null);
+                    try {
+                      const { data: sessionData } = await supabase.auth.getSession();
+                      const accessToken = sessionData.session?.access_token;
+                      if (!accessToken) {
+                        setRoomAccessError('You must be signed in to change access.');
+                        return;
+                      }
+
+                      const res = await fetch(
+                        `http://localhost:3001/api/rooms/${currentRoom}/access`,
+                        {
+                          method: 'PATCH',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${accessToken}`,
+                          },
+                          body: JSON.stringify({ access: 'ANYONE_WITH_LINK' }),
+                        },
+                      );
+
+                      if (!res.ok) {
+                        const body = await res.json().catch(() => ({}));
+                        throw new Error(
+                          body.error ||
+                            `Failed to update room access (${res.status})`,
+                        );
+                      }
+
+                      setRoomAccessLevel('ANYONE_WITH_LINK');
+                    } catch (err) {
+                      setRoomAccessError(
+                        err instanceof Error
+                          ? err.message
+                          : 'Failed to update room access.',
+                      );
+                    } finally {
+                      setRoomAccessSaving(false);
+                    }
+                  }}
+                  className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                    roomAccessLevel === 'ANYONE_WITH_LINK'
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-background hover:bg-muted/60'
+                  } ${!roomIsOwner ? 'opacity-70 cursor-not-allowed' : ''}`}
+                >
+                  <div className="font-medium mb-1">Anyone with link</div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Any signed-in user who knows the room ID can join.
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {roomAccessError && (
+              <div className="text-xs text-destructive">
+                {roomAccessError}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRoomAccessDialogOpen(false)}
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
