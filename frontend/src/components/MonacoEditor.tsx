@@ -5,6 +5,56 @@ import * as monaco from 'monaco-editor';
 import * as Y from 'yjs';
 import { MonacoBinding } from 'y-monaco';
 
+// Configure Monaco web workers so that language services (autocomplete, diagnostics)
+// work correctly in the browser with Next.js.
+if (typeof window !== 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (self as any).MonacoEnvironment = {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    getWorker(_: string, label: string) {
+      if (label === 'typescript' || label === 'javascript') {
+        return new Worker(
+          new URL(
+            'monaco-editor/esm/vs/language/typescript/ts.worker.js',
+            import.meta.url,
+          ),
+        );
+      }
+      if (label === 'json') {
+        return new Worker(
+          new URL(
+            'monaco-editor/esm/vs/language/json/json.worker.js',
+            import.meta.url,
+          ),
+        );
+      }
+      if (label === 'css' || label === 'scss' || label === 'less') {
+        return new Worker(
+          new URL(
+            'monaco-editor/esm/vs/language/css/css.worker.js',
+            import.meta.url,
+          ),
+        );
+      }
+      if (label === 'html' || label === 'handlebars' || label === 'razor') {
+        return new Worker(
+          new URL(
+            'monaco-editor/esm/vs/language/html/html.worker.js',
+            import.meta.url,
+          ),
+        );
+      }
+
+      return new Worker(
+        new URL(
+          'monaco-editor/esm/vs/editor/editor.worker.js',
+          import.meta.url,
+        ),
+      );
+    },
+  };
+}
+
 interface MonacoEditorProps {
   yText: Y.Text | null;
   language?: string;
@@ -25,14 +75,10 @@ export default function MonacoEditor({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const effectiveLanguage =
-      language === 'javascript' || language === 'typescript'
-        ? 'plaintext'
-        : language;
-
     const editor = monaco.editor.create(containerRef.current, {
+      // Initial value comes from Yjs binding; keep local value only as a fallback.
       value,
-      language: effectiveLanguage,
+      language,
       theme: 'vs-dark',
       automaticLayout: true,
       minimap: { enabled: true },
@@ -49,7 +95,7 @@ export default function MonacoEditor({
       }
       editor.dispose();
     };
-  }, [language, value]);
+  }, []);
 
   useEffect(() => {
     if (!editorRef.current || !yText) return;
@@ -83,14 +129,31 @@ export default function MonacoEditor({
   useEffect(() => {
     if (!editorRef.current || !language) return;
 
-    const effectiveLanguage =
-      language === 'javascript' || language === 'typescript'
-        ? 'plaintext'
-        : language;
+    // Map UI language options to Monaco language identifiers
+    const languageId = (() => {
+      switch (language) {
+        case 'javascript':
+          return 'javascript';
+        case 'typescript':
+          return 'typescript';
+        case 'python':
+          return 'python';
+        case 'java':
+          return 'java';
+        case 'cpp':
+          return 'cpp';
+        case 'go':
+          return 'go';
+        case 'rust':
+          return 'rust';
+        default:
+          return 'plaintext';
+      }
+    })();
 
     monaco.editor.setModelLanguage(
       editorRef.current.getModel()!,
-      effectiveLanguage
+      languageId
     );
   }, [language]);
 
