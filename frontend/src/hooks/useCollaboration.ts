@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import * as Y from 'yjs';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+const COLLAB_URL =
+  process.env.NEXT_PUBLIC_COLLAB_URL || 'ws://localhost:3002';
 
 export interface UseCollaborationOptions {
   roomId: string;
@@ -47,10 +48,9 @@ export function useCollaboration({
     }
 
     const ydocInstance = ydocRef.current;
-    const wsUrl = `${BACKEND_URL.replace('http', 'ws')}/collaboration`;
 
     const hocuspocusProvider = new HocuspocusProvider({
-      url: wsUrl,
+      url: COLLAB_URL,
       name: roomId,
       document: ydocInstance,
       token: userName,

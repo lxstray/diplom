@@ -1,8 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import websocket from '@fastify/websocket';
 import { Hocuspocus } from '@hocuspocus/server';
-import type { FastifyInstance } from 'fastify';
 
 const hocuspocus = new Hocuspocus({
   async onConnect(data) {
@@ -13,7 +11,7 @@ const hocuspocus = new Hocuspocus({
   },
 });
 
-async function buildServer() {
+async function buildHttpServer() {
   const fastify = Fastify({
     logger: {
       level: 'info',
@@ -23,8 +21,6 @@ async function buildServer() {
   await fastify.register(cors, {
     origin: true,
   });
-
-  await fastify.register(websocket);
 
   // Health check endpoint
   fastify.get('/health', async () => {
@@ -42,25 +38,22 @@ async function buildServer() {
     return { roomId, exists: true };
   });
 
-  // WebSocket endpoint for Hocuspocus
-  fastify.get('/collaboration', { websocket: true }, async (connection, req) => {
-    hocuspocus.handleConnection(
-      connection.socket,
-      req.raw as any
-    );
-  });
-
   return fastify;
 }
 
 const start = async () => {
-  const fastify = await buildServer();
+  const fastify = await buildHttpServer();
   const port = parseInt(process.env.PORT || '3001', 10);
+  const collabPort = parseInt(process.env.COLLAB_PORT || '3002', 10);
 
   try {
     await fastify.listen({ port, host: '0.0.0.0' });
-    console.log(`🚀 Backend server running on http://localhost:${port}`);
-    console.log(`📡 Hocuspocus collaboration on ws://localhost:${port}/collaboration`);
+    console.log(`🚀 Backend HTTP server running on http://localhost:${port}`);
+
+    await hocuspocus.listen(collabPort);
+    console.log(
+      `📡 Hocuspocus collaboration server running on ws://localhost:${collabPort}`,
+    );
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

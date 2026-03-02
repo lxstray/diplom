@@ -25,9 +25,14 @@ export default function MonacoEditor({
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const effectiveLanguage =
+      language === 'javascript' || language === 'typescript'
+        ? 'plaintext'
+        : language;
+
     const editor = monaco.editor.create(containerRef.current, {
       value,
-      language,
+      language: effectiveLanguage,
       theme: 'vs-dark',
       automaticLayout: true,
       minimap: { enabled: true },
@@ -38,9 +43,13 @@ export default function MonacoEditor({
     editorRef.current = editor;
 
     return () => {
+      if (bindingRef.current) {
+        bindingRef.current.destroy();
+        bindingRef.current = null;
+      }
       editor.dispose();
     };
-  }, []);
+  }, [language, value]);
 
   useEffect(() => {
     if (!editorRef.current || !yText) return;
@@ -52,7 +61,6 @@ export default function MonacoEditor({
       bindingRef.current.destroy();
     }
 
-    // Create new Yjs binding
     const binding = new MonacoBinding(
       yText,
       editor.getModel()!,
@@ -69,17 +77,21 @@ export default function MonacoEditor({
 
     return () => {
       disposable.dispose();
-      if (bindingRef.current) {
-        bindingRef.current.destroy();
-        bindingRef.current = null;
-      }
     };
   }, [yText, onValueChange]);
 
   useEffect(() => {
-    if (editorRef.current && language) {
-      monaco.editor.setModelLanguage(editorRef.current.getModel()!, language);
-    }
+    if (!editorRef.current || !language) return;
+
+    const effectiveLanguage =
+      language === 'javascript' || language === 'typescript'
+        ? 'plaintext'
+        : language;
+
+    monaco.editor.setModelLanguage(
+      editorRef.current.getModel()!,
+      effectiveLanguage
+    );
   }, [language]);
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
