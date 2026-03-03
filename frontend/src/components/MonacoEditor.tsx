@@ -58,15 +58,30 @@ if (typeof window !== 'undefined') {
 interface MonacoEditorProps {
   yText: Y.Text | null;
   language?: string;
+  onCursorPositionChange?: (
+    line: number,
+    column: number,
+    selection?: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    } | null
+  ) => void;
+  editorRef?: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>;
 }
 
 export default function MonacoEditor({
   yText,
   language = 'javascript',
+  onCursorPositionChange,
+  editorRef: externalEditorRef,
 }: MonacoEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const internalEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const bindingRef = useRef<MonacoBinding | null>(null);
+  
+  const editorRef = externalEditorRef || internalEditorRef;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -81,6 +96,35 @@ export default function MonacoEditor({
     });
 
     editorRef.current = editor;
+    
+    // Track cursor position and selection changes
+    if (onCursorPositionChange) {
+      const emitCursor = () => {
+        const position = editor.getPosition();
+        const selection = editor.getSelection();
+
+        if (!position) return;
+
+        if (selection) {
+          onCursorPositionChange(position.lineNumber, position.column, {
+            startLine: selection.startLineNumber,
+            startColumn: selection.startColumn,
+            endLine: selection.endLineNumber,
+            endColumn: selection.endColumn,
+          });
+        } else {
+          onCursorPositionChange(position.lineNumber, position.column, null);
+        }
+      };
+
+      editor.onDidChangeCursorPosition(() => {
+        emitCursor();
+      });
+
+      editor.onDidChangeCursorSelection(() => {
+        emitCursor();
+      });
+    }
 
     return () => {
       if (bindingRef.current) {

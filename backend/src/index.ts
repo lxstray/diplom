@@ -6,6 +6,7 @@ import { supabaseAdmin } from './supabase.js';
 import { prisma } from './services/prisma.js';
 import { projectRoutes } from './modules/projects/project.routes.js';
 import { executionRoutes } from './modules/execution/execution.routes.js';
+import { signalingRoutes } from './modules/webrtc/signaling.routes.js';
 import * as roomService from './modules/projects/room.service.js';
 
 const collabPort = parseInt(process.env.COLLAB_PORT || '3002', 10);
@@ -125,6 +126,9 @@ async function buildHttpServer() {
 
   // Register code execution routes
   await fastify.register(executionRoutes);
+
+  // Register WebRTC signaling routes
+  await fastify.register(signalingRoutes);
 
   return fastify;
 }

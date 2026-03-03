@@ -375,11 +375,11 @@ import { MonacoBinding } from 'y-monaco'
 
 **Features:**
 - [x] save prev rooms/projects
-- [ ] Judge0 integration
-- [ ] Backend proxy for execution requests
-- [ ] Rate limiting
+- [x] Judge0 integration
+- [x] Backend proxy for execution requests
+- [x] Rate limiting
 - [ ] ?Multiple language support
-- [ ] Console output display
+- [x] Console output display
 
 **Infrastructure:**
 - Judge0 Docker container
@@ -394,10 +394,8 @@ import { MonacoBinding } from 'y-monaco'
 **Features:**
 - [ ] WebRTC peer-to-peer video/audio
 - [ ] Chat functionality
-- [ ] ?Screen sharing
 - [ ] Cursor presence visualization
 - [ ] User avatars
-- [ ] Leetcode analoge
 
 **Infrastructure:**
 - WebRTC signaling server
@@ -410,6 +408,7 @@ import { MonacoBinding } from 'y-monaco'
 **Goal:** Deployment and polish
 
 **Features:**
+- [ ] leetcode analogue
 - [ ] Full authentication flow
 - [ ] Project sharing & permissions
 - [ ] Version history

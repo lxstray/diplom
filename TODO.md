@@ -1,4 +1,3 @@
-docker run -d --name judge0 --rm -p 2358:2358 judge0/judge0:latest
 - автокомплит для остальных языков
 - завезти поддрежку гит для версионирования 
 - настроить дополнительное потверждение регистрации
@@ -11,3 +10,20 @@ docker run -d --name judge0 --rm -p 2358:2358 judge0/judge0:latest
 - добавить возможность создавать проекты на определенном языке(с готовой структурой папок и тд)
 - на данный момент запускаеться только один файл, сделать что бы могли запускаться целые проекты
 - на данный момент поддерживается только js, добоваить запуск других языков.
+- сделать так что бы если один выполнил программу, другой видит резульатат это программы
+
+
+cd /home/snxwlv/pers/diplom && docker compose -f docker/judge0.docker-compose.yml ps && docker compose -f docker/judge0.docker-compose.yml logs --tail=80 server worker
+Commands (from repo root)
+cd /home/snxwlv/pers/diplom
+Start (or restart) Judge0 stack:
+docker compose -f docker/judge0.docker-compose.yml up -d
+Stop containers (keep DB volume):
+docker compose -f docker/judge0.docker-compose.yml stop
+Stop + remove containers (keep DB volume):
+docker compose -f docker/judge0.docker-compose.yml down
+Stop + remove containers + delete DB data volume (full reset):
+docker compose -f docker/judge0.docker-compose.yml down -v
+View status:
+docker compose -f docker/judge0.docker-compose.yml ps
+

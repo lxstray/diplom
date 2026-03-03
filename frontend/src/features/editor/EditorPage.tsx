@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useFileContent } from '@/hooks/useFileContent';
 import { useCodeExecution } from '@/hooks/useCodeExecution';
+import { useChat } from '@/hooks/useChat';
+import { useCursorPresence } from '@/hooks/useCursorPresence';
 import { FileTree } from '@/components/file-tree/FileTree';
 import { RoomHistoryPanel } from '@/components/RoomHistoryPanel';
 import { ConsoleOutput } from '@/components/ConsoleOutput';
@@ -27,9 +29,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { ChatPanel } from '@/components/chat/ChatPanel';
+import { VideoPanel } from '@/components/video/VideoPanel';
+import { CollaboratorsPanel } from '@/components/collaborators/CollaboratorsPanel';
+import { CursorOverlay } from '@/components/cursor/CursorOverlay';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, FolderOpen, ShieldCheck, Copy, Play } from 'lucide-react';
+import {
+  Users,
+  FolderOpen,
+  ShieldCheck,
+  Copy,
+  Play,
+  MessageSquare,
+  Video,
+  VideoOff,
+} from 'lucide-react';
 import * as Y from 'yjs';
+import type * as monaco from 'monaco-editor';
 
 const MonacoEditor = dynamic(() => import('@/components/MonacoEditor'), {
   ssr: false,
@@ -67,9 +83,32 @@ export default function EditorPage() {
   const [roomAccessSaving, setRoomAccessSaving] = useState(false);
   const [roomIsOwner, setRoomIsOwner] = useState(false);
 
-  const { ydoc, yFiles, yFileTexts, connected, error, peers } = useCollaboration({
+  // New Version 3 features state
+  const [chatOpen, setChatOpen] = useState(false);
+  const [videoPanelOpen, setVideoPanelOpen] = useState(false);
+  const [videoEnabled, setVideoEnabled] = useState(false);
+  const [clientId] = useState(() => crypto.randomUUID());
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+
+  const { ydoc, yFiles, yFileTexts, connected, error, provider, peers } = useCollaboration({
     roomId: currentRoom || '',
     userName,
+  });
+
+  // Chat hook
+  const { messages, sendMessage } = useChat({
+    roomId: currentRoom || '',
+    userId: userId || 'anonymous',
+    userName,
+    provider,
+  });
+
+  // Cursor presence hook
+  const { remoteCursors, updateCursorPosition } = useCursorPresence({
+    provider,
+    userId: userId || 'anonymous',
+    userName,
+    roomId: currentRoom || '',
   });
 
   const { currentFile } = useFileContent({
@@ -478,12 +517,11 @@ export default function EditorPage() {
               <Badge variant={connected ? "default" : "secondary"}>
                 {connected ? 'Connected' : 'Connecting...'}
               </Badge>
-              {peers.length > 0 && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Users className="h-3 w-3" />
-                  <span>{peers.length}</span>
-                </div>
-              )}
+              <CollaboratorsPanel
+                peers={peers}
+                currentUserName={userName}
+                currentUserId={userId || clientId}
+              />
               <Button
                 size="sm"
                 variant="outline"
@@ -492,6 +530,33 @@ export default function EditorPage() {
               >
                 <ShieldCheck className="h-3 w-3 mr-1" />
                 Access
+              </Button>
+              <Button
+                size="sm"
+                variant={videoPanelOpen ? 'default' : 'outline'}
+                className="h-8 px-2 text-xs"
+                onClick={() => {
+                  setVideoPanelOpen(!videoPanelOpen);
+                  if (!videoPanelOpen && !videoEnabled) {
+                    setVideoEnabled(true);
+                  }
+                }}
+              >
+                {videoPanelOpen || videoEnabled ? (
+                  <Video className="h-3 w-3 mr-1" />
+                ) : (
+                  <VideoOff className="h-3 w-3 mr-1" />
+                )}
+                Video
+              </Button>
+              <Button
+                size="sm"
+                variant={chatOpen ? 'default' : 'outline'}
+                className="h-8 px-2 text-xs"
+                onClick={() => setChatOpen(!chatOpen)}
+              >
+                <MessageSquare className="h-3 w-3 mr-1" />
+                Chat
               </Button>
               <Button onClick={handleLeaveRoom} size="sm" variant="destructive">
                 Leave
@@ -721,14 +786,21 @@ export default function EditorPage() {
         )}
 
         {/* Editor */}
-        <main className="flex-1 min-h-0 overflow-hidden p-4 flex flex-col">
+        <main className="flex-1 min-h-0 overflow-hidden p-4 flex flex-col relative">
           {currentRoom ? (
             yFiles && activeFileId && activeYText ? (
-              <div className="flex-1 min-h-0 rounded-md border overflow-hidden flex flex-col">
-                <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 rounded-md border overflow-hidden flex flex-col relative">
+                <div className="flex-1 min-h-0 relative">
                   <MonacoEditor
                     yText={activeYText}
                     language={language}
+                    onCursorPositionChange={updateCursorPosition}
+                    editorRef={editorRef as any}
+                  />
+                  {/* Cursor overlay for remote users */}
+                  <CursorOverlay
+                    cursors={remoteCursors}
+                    editorRef={editorRef as any}
                   />
                 </div>
                 {consoleOpen && (
@@ -754,6 +826,37 @@ export default function EditorPage() {
             </div>
           )}
         </main>
+
+        {/* Chat Panel - Right Sidebar */}
+        {currentRoom && chatOpen && (
+          <ChatPanel
+            isOpen={chatOpen}
+            onClose={() => setChatOpen(false)}
+            roomId={currentRoom}
+            userId={userId}
+            userName={userName}
+            provider={provider}
+          />
+        )}
+
+        {/* Video Panel - Floating Panel */}
+        {currentRoom && videoPanelOpen && (
+          <VideoPanel
+            isOpen={videoPanelOpen}
+            onClose={() => {
+              setVideoPanelOpen(false);
+              if (videoEnabled) {
+                setVideoEnabled(false);
+              }
+            }}
+            roomId={currentRoom}
+            userId={userId || clientId}
+            userName={userName}
+            provider={provider}
+            enabled={videoEnabled}
+            onToggleEnabled={() => setVideoEnabled(!videoEnabled)}
+          />
+        )}
       </div>
 
       {/* New Project Dialog */}
