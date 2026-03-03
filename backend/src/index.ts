@@ -1,55 +1,55 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { Hocuspocus } from '@hocuspocus/server';
+import { Server } from '@hocuspocus/server';
 import { Database } from '@hocuspocus/extension-database';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { supabaseAdmin } from './supabase.js';
+import { prisma } from './services/prisma.js';
 import { projectRoutes } from './modules/projects/project.routes.js';
 import * as roomService from './modules/projects/room.service.js';
 
-const hocuspocus = new Hocuspocus({
+const collabPort = parseInt(process.env.COLLAB_PORT || '3002', 10);
+
+const collabServer = new Server({
+  port: collabPort,
   extensions: [
     new Database({
-      // Simple file-based persistence: one binary file per document
+      // Persist document state in Postgres (via Prisma), keyed by roomId (= documentName).
       fetch: async ({ documentName }) => {
-        try {
-          const dataDir = path.resolve(process.cwd(), 'hocuspocus-data');
-          const filePath = path.join(
-            dataDir,
-            encodeURIComponent(documentName || 'default'),
-          );
-          const buf = await fs.readFile(filePath);
-          return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
-        } catch (err: any) {
-          if (err && err.code === 'ENOENT') {
-            // No persisted state yet for this document
-            return null;
-          }
-          throw err;
-        }
+        if (!documentName) return null;
+
+        const doc = await prisma.collabDocument.findUnique({
+          where: { roomId: documentName },
+          select: { state: true },
+        });
+
+        if (!doc?.state) return null;
+
+        // Prisma returns Bytes as Buffer in Node.js
+        const buf = doc.state as unknown as Buffer;
+        return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
       },
       store: async ({ documentName, state }) => {
-        const dataDir = path.resolve(process.cwd(), 'hocuspocus-data');
-        await fs.mkdir(dataDir, { recursive: true });
-        const filePath = path.join(
-          dataDir,
-          encodeURIComponent(documentName || 'default'),
-        );
-        await fs.writeFile(filePath, Buffer.from(state));
+        if (!documentName) return;
+
+        await prisma.collabDocument.upsert({
+          where: { roomId: documentName },
+          create: { roomId: documentName, state: Buffer.from(state) },
+          update: { state: Buffer.from(state) },
+        });
       },
     }),
   ],
   // Use onAuthenticate to receive the token passed from the HocuspocusProvider.
   async onAuthenticate(data) {
-    const token = data.token as string | undefined;
+    const anyData = data as any;
+    const token = anyData.token as string | undefined;
 
-    console.log('[hocuspocus] onAuthenticate - documentName:', data.documentName);
+    console.log('[hocuspocus] onAuthenticate - documentName:', anyData.documentName);
     console.log('[hocuspocus] onAuthenticate - token present:', !!token);
 
     if (!token) {
       console.warn('[hocuspocus] Missing token on authenticate, closing.');
-      (data.connection as any)?.close?.();
+      anyData.connection?.close?.();
       return;
     }
 
@@ -57,14 +57,14 @@ const hocuspocus = new Hocuspocus({
       const { data: userData, error } = await supabaseAdmin.auth.getUser(token);
       if (error || !userData?.user) {
         console.warn('[hocuspocus] Invalid token, closing connection.');
-        (data.connection as any)?.close?.();
+        anyData.connection?.close?.();
         return;
       }
 
-      const roomId = data.documentName as string | undefined;
+      const roomId = anyData.documentName as string | undefined;
       if (!roomId) {
         console.warn('[hocuspocus] Missing room id (documentName), closing.');
-        (data.connection as any)?.close?.();
+        anyData.connection?.close?.();
         return;
       }
 
@@ -78,14 +78,14 @@ const hocuspocus = new Hocuspocus({
           console.warn(
             `[hocuspocus] Access denied. Room: ${roomId}, user: ${userData.user.id}`,
           );
-          (data.connection as any)?.close?.();
+          anyData.connection?.close?.();
           return;
         }
       } catch (err) {
         console.warn(
           `[hocuspocus] Error while checking room access, closing. Room: ${roomId}, user: ${userData.user.id}`,
         );
-        (data.connection as any)?.close?.();
+        anyData.connection?.close?.();
         return;
       }
 
@@ -94,11 +94,12 @@ const hocuspocus = new Hocuspocus({
       );
     } catch (err) {
       console.warn('[hocuspocus] Error during authentication, closing connection.');
-      (data.connection as any)?.close?.();
+      anyData.connection?.close?.();
     }
   },
   async onDisconnect(data) {
-    console.log(`Client disconnected. Room: ${data.documentName}`);
+    const anyData = data as any;
+    console.log(`Client disconnected. Room: ${anyData.documentName}`);
   },
 });
 
@@ -127,13 +128,12 @@ async function buildHttpServer() {
 const start = async () => {
   const fastify = await buildHttpServer();
   const port = parseInt(process.env.PORT || '3001', 10);
-  const collabPort = parseInt(process.env.COLLAB_PORT || '3002', 10);
 
   try {
     await fastify.listen({ port, host: '0.0.0.0' });
     console.log(`🚀 Backend HTTP server running on http://localhost:${port}`);
 
-    await hocuspocus.listen(collabPort);
+    collabServer.listen();
     console.log(
       `📡 Hocuspocus collaboration server running on ws://localhost:${collabPort}`,
     );

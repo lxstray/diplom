@@ -32,6 +32,15 @@ model Room {
   project   Project  @relation(fields: [projectId], references: [id])
   access    RoomAccessLevel @default(OWNER)
   accesses  RoomAccess[]
+  collabDocument CollabDocument?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CollabDocument {
+  roomId    String   @id
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  state     Bytes
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
