@@ -4,8 +4,10 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useFileContent } from '@/hooks/useFileContent';
+import { useCodeExecution } from '@/hooks/useCodeExecution';
 import { FileTree } from '@/components/file-tree/FileTree';
 import { RoomHistoryPanel } from '@/components/RoomHistoryPanel';
+import { ConsoleOutput } from '@/components/ConsoleOutput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +28,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, FolderOpen, ShieldCheck, Copy } from 'lucide-react';
+import { Users, FolderOpen, ShieldCheck, Copy, Play } from 'lucide-react';
 import * as Y from 'yjs';
 
 const MonacoEditor = dynamic(() => import('@/components/MonacoEditor'), {
@@ -74,6 +76,17 @@ export default function EditorPage() {
     yFiles,
     activeFileId,
   });
+
+  const {
+    isRunning,
+    error: executionError,
+    output,
+    rateLimit,
+    execute,
+    clearOutput,
+  } = useCodeExecution();
+
+  const [consoleOpen, setConsoleOpen] = useState(false);
 
   // Get or create a Y.Text for the active file so each file
   // has its own collaborative content.
@@ -384,7 +397,7 @@ export default function EditorPage() {
       setCurrentProject(project.id);
       setNewProjectName('');
       setNewProjectDialogOpen(false);
-      
+
       // Create initial room for the project
       const roomResponse = await fetch(`http://localhost:3001/api/projects/${project.id}/rooms`, {
         method: 'POST',
@@ -406,6 +419,21 @@ export default function EditorPage() {
       );
     }
   };
+
+  const handleRunCode = useCallback(async () => {
+    if (!activeYText || !currentFile) return;
+
+    const code = activeYText.toString();
+    
+    setConsoleOpen(true);
+    
+    await execute({
+      code,
+      language: language as any,
+      roomId: currentRoom || undefined,
+      fileId: activeFileId || undefined,
+    });
+  }, [activeYText, currentFile, language, currentRoom, activeFileId, execute]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -493,6 +521,18 @@ export default function EditorPage() {
                 <SelectItem value="rust">Rust</SelectItem>
               </SelectContent>
             </Select>
+            {currentRoom && currentFile && (
+              <Button
+                onClick={handleRunCode}
+                size="sm"
+                variant="default"
+                disabled={isRunning}
+                className="gap-2"
+              >
+                <Play className="h-4 w-4" />
+                Run
+              </Button>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -681,14 +721,27 @@ export default function EditorPage() {
         )}
 
         {/* Editor */}
-        <main className="flex-1 overflow-hidden p-4">
+        <main className="flex-1 overflow-hidden p-4 flex flex-col">
           {currentRoom ? (
             yFiles && activeFileId && activeYText ? (
-              <div className="h-full rounded-md border overflow-hidden">
-                <MonacoEditor
-                  yText={activeYText}
-                  language={language}
-                />
+              <div className="flex-1 rounded-md border overflow-hidden flex flex-col">
+                <div className="flex-1">
+                  <MonacoEditor
+                    yText={activeYText}
+                    language={language}
+                  />
+                </div>
+                {consoleOpen && (
+                  <div className="mt-2">
+                    <ConsoleOutput
+                      isOpen={consoleOpen}
+                      onClose={() => setConsoleOpen(false)}
+                      output={output}
+                      isRunning={isRunning}
+                      error={executionError}
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground text-lg">

@@ -5,6 +5,7 @@ import { Database } from '@hocuspocus/extension-database';
 import { supabaseAdmin } from './supabase.js';
 import { prisma } from './services/prisma.js';
 import { projectRoutes } from './modules/projects/project.routes.js';
+import { executionRoutes } from './modules/execution/execution.routes.js';
 import * as roomService from './modules/projects/room.service.js';
 
 const collabPort = parseInt(process.env.COLLAB_PORT || '3002', 10);
@@ -121,6 +122,9 @@ async function buildHttpServer() {
 
   // Register project and room routes
   await fastify.register(projectRoutes);
+
+  // Register code execution routes
+  await fastify.register(executionRoutes);
 
   return fastify;
 }
