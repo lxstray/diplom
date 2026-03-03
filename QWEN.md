@@ -374,12 +374,11 @@ import { MonacoBinding } from 'y-monaco'
 **Goal:** Run code securely from the editor
 
 **Features:**
-- [ ] save prev rooms/projects
+- [x] save prev rooms/projects
 - [ ] Judge0 integration
 - [ ] Backend proxy for execution requests
 - [ ] Rate limiting
-- [ ] Execution history
-- [ ] Multiple language support
+- [ ] ?Multiple language support
 - [ ] Console output display
 
 **Infrastructure:**

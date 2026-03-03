@@ -37,6 +37,19 @@ interface RateLimitEntry {
 
 const rateLimitMap = new Map<string, RateLimitEntry>();
 
+function decodeMaybeBase64(value?: string): string | undefined {
+  if (!value) return undefined;
+
+  try {
+    // Judge0 can optionally return base64-encoded fields when base64_encoded=true is used.
+    // If the string is not valid base64, fall back to the original value.
+    // eslint-disable-next-line no-undef
+    return atob(value);
+  } catch {
+    return value;
+  }
+}
+
 /**
  * Check if user has exceeded rate limit
  */
@@ -107,16 +120,16 @@ export async function getExecutionResult(submissionId: string): Promise<Executio
   }
 
   const result = await response.json();
-  
+
   return {
     id: submissionId,
     status: {
       id: result.status?.id || 0,
       description: result.status?.description || 'Unknown',
     },
-    stdout: result.stdout ? atob(result.stdout) : undefined,
-    stderr: result.stderr ? atob(result.stderr) : undefined,
-    compile_output: result.compile_output ? atob(result.compile_output) : undefined,
+    stdout: decodeMaybeBase64(result.stdout),
+    stderr: decodeMaybeBase64(result.stderr),
+    compile_output: decodeMaybeBase64(result.compile_output),
     time: result.time,
     memory: result.memory,
     exit_code: result.exit_code,
@@ -157,9 +170,9 @@ export async function pollExecutionResult(
           id: result.status.id,
           description: result.status.description || 'Unknown',
         },
-        stdout: result.stdout ? atob(result.stdout) : undefined,
-        stderr: result.stderr ? atob(result.stderr) : undefined,
-        compile_output: result.compile_output ? atob(result.compile_output) : undefined,
+        stdout: decodeMaybeBase64(result.stdout),
+        stderr: decodeMaybeBase64(result.stderr),
+        compile_output: decodeMaybeBase64(result.compile_output),
         time: result.time,
         memory: result.memory,
         exit_code: result.exit_code,
