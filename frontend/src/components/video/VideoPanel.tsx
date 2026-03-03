@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Mic, MicOff, Video, VideoOff, X } from 'lucide-react';
@@ -31,6 +31,19 @@ export function VideoPanel({
 }: VideoPanelProps) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const [position, setPosition] = useState<{ top: number; left: number }>({
+    top: 80,
+    left: 80,
+  });
+  const dragStateRef = useRef<{
+    dragging: boolean;
+    offsetX: number;
+    offsetY: number;
+  }>({
+    dragging: false,
+    offsetX: 0,
+    offsetY: 0,
+  });
 
   const {
     localStream,
@@ -82,12 +95,59 @@ export function VideoPanel({
     onToggleEnabled();
   };
 
+  const handleMouseDownHeader = (
+    e: React.MouseEvent<HTMLDivElement, MouseEvent>
+  ) => {
+    e.preventDefault();
+    const rect = (e.currentTarget.parentElement as HTMLElement)?.getBoundingClientRect();
+    if (!rect) return;
+    dragStateRef.current = {
+      dragging: true,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragStateRef.current.dragging) return;
+
+      const newLeft = e.clientX - dragStateRef.current.offsetX;
+      const newTop = e.clientY - dragStateRef.current.offsetY;
+
+      setPosition({
+        top: Math.max(0, newTop),
+        left: Math.max(0, newLeft),
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (dragStateRef.current.dragging) {
+        dragStateRef.current.dragging = false;
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-16 right-80 w-64 bg-card border rounded-lg shadow-lg z-50">
+    <div
+      className="fixed w-64 bg-card border rounded-lg shadow-lg z-50"
+      style={{ top: position.top, left: position.left }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b">
+      <div
+        className="flex items-center justify-between p-3 border-b cursor-move select-none"
+        onMouseDown={handleMouseDownHeader}
+      >
         <div className="flex items-center gap-2">
           <Video className="h-4 w-4" />
           <h3 className="font-semibold text-sm">Video Chat</h3>

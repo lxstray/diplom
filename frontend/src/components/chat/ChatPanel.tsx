@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { X, Send, Trash2, MessageSquare } from 'lucide-react';
+import { X, Send, MessageSquare, Smile } from 'lucide-react';
 import { useChat } from '@/hooks/useChat';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import type { ChatMessage } from '@/types/chat';
@@ -29,6 +29,7 @@ export function ChatPanel({
   provider,
 }: ChatPanelProps) {
   const [inputMessage, setInputMessage] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +58,7 @@ export function ChatPanel({
     if (!inputMessage.trim() || !isReady) return;
     sendMessage(inputMessage);
     setInputMessage('');
+    setShowEmojiPicker(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -80,6 +82,28 @@ export function ChatPanel({
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const emojiGroups: { label: string; emojis: string[] }[] = [
+    {
+      label: 'Smileys',
+      emojis: ['😀', '😁', '😂', '🤣', '😊', '😍', '😎', '😢', '😡', '🥳', '🤡 '],
+    },
+    {
+      label: 'Hands',
+      emojis: ['👍', '👎', '👏', '🙏', '✌️', '👌'],
+    },
+    {
+      label: 'Misc',
+      emojis: ['🔥', '✨', '✅', '❌', '💡', '🚀'],
+    },
+  ];
+
+  const handleEmojiClick = (emoji: string) => {
+    setInputMessage((prev) => prev + emoji);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   if (!isOpen) return null;
@@ -158,7 +182,17 @@ export function ChatPanel({
 
       {/* Input */}
       <div className="p-4 border-t">
-        <div className="flex gap-2">
+        <div className="relative flex gap-2 items-center">
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="h-9 w-9"
+            onClick={() => setShowEmojiPicker((prev) => !prev)}
+            disabled={!isReady}
+          >
+            <Smile className="h-4 w-4" />
+          </Button>
           <Input
             ref={inputRef}
             type="text"
@@ -177,6 +211,32 @@ export function ChatPanel({
           >
             <Send className="h-4 w-4" />
           </Button>
+
+          {showEmojiPicker && (
+            <div className="absolute bottom-11 left-0 z-50 w-64 rounded-md border bg-popover shadow-lg p-2">
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                {emojiGroups.map((group) => (
+                  <div key={group.label}>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 px-1">
+                      {group.label}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {group.emojis.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          className="h-7 w-7 flex items-center justify-center rounded hover:bg-accent text-lg"
+                          onClick={() => handleEmojiClick(emoji)}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

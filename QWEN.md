@@ -392,10 +392,10 @@ import { MonacoBinding } from 'y-monaco'
 **Goal:** Full team collaboration experience
 
 **Features:**
-- [ ] WebRTC peer-to-peer video/audio
-- [ ] Chat functionality
-- [ ] Cursor presence visualization
-- [ ] User avatars
+- [x] WebRTC peer-to-peer video/audio
+- [x] Chat functionality and emodji
+- [x] Cursor presence visualization
+- [x] User avatars
 
 **Infrastructure:**
 - WebRTC signaling server
@@ -409,9 +409,9 @@ import { MonacoBinding } from 'y-monaco'
 
 **Features:**
 - [ ] leetcode analogue
+- [ ] Version history(git)
 - [ ] Full authentication flow
 - [ ] Project sharing & permissions
-- [ ] Version history
 - [ ] Error handling & logging
 - [ ] Performance optimization
 - [ ] Security hardening
