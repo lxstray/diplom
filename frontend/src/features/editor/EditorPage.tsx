@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useFileContent } from '@/hooks/useFileContent';
 import { FileTree } from '@/components/file-tree/FileTree';
+import { RoomHistoryPanel } from '@/components/RoomHistoryPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -266,6 +267,47 @@ export default function EditorPage() {
     setCurrentProject(null);
     setRoomId('');
     setActiveFileId(null);
+    setSidebarOpen(true); // Reset sidebar to open when returning to main page
+  };
+
+  const handleReconnect = async (roomId: string) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken) {
+        setAuthError('You must be signed in to join a room.');
+        return;
+      }
+
+      const response = await fetch(
+        `http://localhost:3001/api/rooms/${roomId}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(
+          body.error || `Failed to join room (${response.status})`,
+        );
+      }
+
+      const { room } = await response.json();
+      setCurrentRoom(room.id);
+      setCurrentProject(room.projectId);
+      setActiveFileId(null);
+      setRoomId(room.id);
+    } catch (err) {
+      console.error('Failed to reconnect to room:', err);
+      setAuthError(
+        err instanceof Error ? err.message : 'Failed to reconnect to room.',
+      );
+    }
   };
 
   const handleOpenRoomAccess = async () => {
@@ -609,16 +651,32 @@ export default function EditorPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* File Tree Sidebar */}
-        {currentRoom && sidebarOpen && (
-          <aside className="w-64 border-r bg-card flex-shrink-0">
-            {yFiles && (
-              <FileTree
-                yFiles={yFiles}
-                activeFileId={activeFileId}
-                onFileSelect={setActiveFileId}
-              />
-            )}
+        {/* Left Sidebar - History & File Tree */}
+        {sidebarOpen && (
+          <aside className="w-72 border-r bg-card flex-shrink-0 overflow-y-auto">
+            <div className="p-4 space-y-4">
+              {/* Room History - Only visible when NOT in a room */}
+              {!currentRoom && (
+                <RoomHistoryPanel
+                  onReconnect={handleReconnect}
+                  userId={userId}
+                />
+              )}
+
+              {/* File Tree - Only visible when in a room */}
+              {currentRoom && yFiles && (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-muted-foreground px-1">
+                    Files
+                  </div>
+                  <FileTree
+                    yFiles={yFiles}
+                    activeFileId={activeFileId}
+                    onFileSelect={setActiveFileId}
+                  />
+                </div>
+              )}
+            </div>
           </aside>
         )}
 

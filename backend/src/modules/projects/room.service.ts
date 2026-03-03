@@ -19,6 +19,14 @@ export interface RoomWithProject {
   updatedAt: Date;
 }
 
+export interface RoomAccessHistory {
+  id: string;
+  roomId: string;
+  room: RoomWithProject;
+  lastAccessed: Date;
+  accessedAt: Date;
+}
+
 export async function createRoom(input: CreateRoomInput): Promise<RoomWithProject> {
   const room = await prisma.room.create({
     data: {
@@ -93,6 +101,11 @@ export async function canAccessRoom(
   const isOwner = room.project.ownerId === userId;
   const anyoneWithLink = room.access === 'ANYONE_WITH_LINK';
 
+  if (isOwner || anyoneWithLink) {
+    // Track room access for history
+    await trackRoomAccess(roomId, userId);
+  }
+
   return {
     canAccess: isOwner || anyoneWithLink,
     room: isOwner || anyoneWithLink ? room : null,
@@ -118,4 +131,69 @@ export async function updateRoomAccess(
   });
 
   return room;
+}
+
+export async function trackRoomAccess(roomId: string, userId: string): Promise<void> {
+  await prisma.roomAccess.upsert({
+    where: {
+      roomId_userId: {
+        roomId,
+        userId,
+      },
+    },
+    update: {
+      lastAccessed: new Date(),
+    },
+    create: {
+      roomId,
+      userId,
+      accessedAt: new Date(),
+      lastAccessed: new Date(),
+    },
+  });
+}
+
+export async function getUserRoomHistory(userId: string): Promise<RoomAccessHistory[]> {
+  const accesses = await prisma.roomAccess.findMany({
+    where: { userId },
+    include: {
+      room: {
+        include: {
+          project: {
+            select: {
+              id: true,
+              name: true,
+              ownerId: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { lastAccessed: 'desc' },
+  });
+
+  return accesses.map((access) => ({
+    id: access.id,
+    roomId: access.roomId,
+    room: access.room as unknown as RoomWithProject,
+    lastAccessed: access.lastAccessed,
+    accessedAt: access.accessedAt,
+  }));
+}
+
+export async function removeRoomAccessFromHistory(
+  historyId: string,
+  userId: string,
+): Promise<void> {
+  const access = await prisma.roomAccess.findUnique({
+    where: { id: historyId },
+  });
+
+  if (!access || access.userId !== userId) {
+    throw new Error('Access not found or unauthorized');
+  }
+
+  await prisma.roomAccess.delete({
+    where: { id: historyId },
+  });
 }

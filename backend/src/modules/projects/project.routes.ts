@@ -172,6 +172,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
           projectId: params.projectId,
           name: body.name || '',
         });
+
+        // Track room access for the creator
+        await roomService.trackRoomAccess(room.id, request.authUser!.id);
+
         return { room };
       } catch (error) {
         if (error instanceof z.ZodError) {
@@ -313,6 +317,45 @@ export async function projectRoutes(fastify: FastifyInstance) {
         }
         fastify.log.error({ error: 'Failed to delete room' }, (error as Error).message);
         reply.code(500).send({ error: 'Failed to delete room' });
+      }
+    },
+  );
+
+  // Get user's room history
+  fastify.get(
+    '/api/rooms/history',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      try {
+        const history = await roomService.getUserRoomHistory(request.authUser!.id);
+        return { history };
+      } catch (error) {
+        fastify.log.error({ error: 'Failed to get room history' }, (error as Error).message);
+        reply.code(500).send({ error: 'Failed to fetch room history' });
+      }
+    },
+  );
+
+  // Remove room from history
+  fastify.delete(
+    '/api/rooms/history/:historyId',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      try {
+        const params = z.object({ historyId: z.string() }).parse(request.params);
+        await roomService.removeRoomAccessFromHistory(params.historyId, request.authUser!.id);
+        return { success: true };
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          reply.code(400).send({ error: 'Validation failed', details: error.errors });
+          return;
+        }
+        fastify.log.error({ error: 'Failed to remove from history' }, (error as Error).message);
+        reply.code(500).send({ error: 'Failed to remove from history' });
       }
     },
   );

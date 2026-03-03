@@ -43,7 +43,14 @@ export function useCollaboration({
   useEffect(() => {
     if (!roomId) {
       // Leaving room: reset state
-      ydocRef.current = null;
+      if (providerRef.current) {
+        providerRef.current.destroy();
+        providerRef.current = null;
+      }
+      if (ydocRef.current) {
+        ydocRef.current.destroy();
+        ydocRef.current = null;
+      }
       setYdoc(null);
       setProvider(null);
       setYFiles(null);
@@ -65,14 +72,19 @@ export function useCollaboration({
       const { data } = await supabase.auth.getSession();
       const accessToken = data.session?.access_token;
 
+      if (!accessToken) {
+        console.error('[useCollaboration] No access token available');
+        setError('Authentication required');
+        return;
+      }
+
+      console.log('[useCollaboration] Connecting to room:', roomId, 'with token:', accessToken ? 'present' : 'missing');
+
       const hocuspocusProvider = new HocuspocusProvider({
         url: COLLAB_URL,
         name: roomId,
         document: ydocInstance,
-        token: accessToken ?? undefined,
-        parameters: {
-          token: accessToken ?? '',
-        },
+        token: accessToken,
         connect: true,
         onStatus: ({ status }) => {
           setConnected(status === 'connected');
@@ -113,7 +125,7 @@ export function useCollaboration({
       // Track peers
       const handleAwarenessUpdate = () => {
         if (!hocuspocusProvider.awareness) return;
-        
+
         const states = Array.from(
           hocuspocusProvider.awareness.getStates().entries(),
         ).map(([clientId, state]) => ({

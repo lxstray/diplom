@@ -1,19 +1,55 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { Hocuspocus } from '@hocuspocus/server';
+import { Database } from '@hocuspocus/extension-database';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { supabaseAdmin } from './supabase.js';
 import { projectRoutes } from './modules/projects/project.routes.js';
 import * as roomService from './modules/projects/room.service.js';
 
 const hocuspocus = new Hocuspocus({
-  async onConnect(data) {
-    const anyData = data as any;
-    const token = (anyData.connectionParameters?.token ??
-      anyData.token) as string | undefined;
+  extensions: [
+    new Database({
+      // Simple file-based persistence: one binary file per document
+      fetch: async ({ documentName }) => {
+        try {
+          const dataDir = path.resolve(process.cwd(), 'hocuspocus-data');
+          const filePath = path.join(
+            dataDir,
+            encodeURIComponent(documentName || 'default'),
+          );
+          const buf = await fs.readFile(filePath);
+          return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+        } catch (err: any) {
+          if (err && err.code === 'ENOENT') {
+            // No persisted state yet for this document
+            return null;
+          }
+          throw err;
+        }
+      },
+      store: async ({ documentName, state }) => {
+        const dataDir = path.resolve(process.cwd(), 'hocuspocus-data');
+        await fs.mkdir(dataDir, { recursive: true });
+        const filePath = path.join(
+          dataDir,
+          encodeURIComponent(documentName || 'default'),
+        );
+        await fs.writeFile(filePath, Buffer.from(state));
+      },
+    }),
+  ],
+  // Use onAuthenticate to receive the token passed from the HocuspocusProvider.
+  async onAuthenticate(data) {
+    const token = data.token as string | undefined;
+
+    console.log('[hocuspocus] onAuthenticate - documentName:', data.documentName);
+    console.log('[hocuspocus] onAuthenticate - token present:', !!token);
 
     if (!token) {
-      console.warn('[hocuspocus] Missing token on connect, closing.');
-      (anyData.connection as any)?.close?.();
+      console.warn('[hocuspocus] Missing token on authenticate, closing.');
+      (data.connection as any)?.close?.();
       return;
     }
 
@@ -21,14 +57,14 @@ const hocuspocus = new Hocuspocus({
       const { data: userData, error } = await supabaseAdmin.auth.getUser(token);
       if (error || !userData?.user) {
         console.warn('[hocuspocus] Invalid token, closing connection.');
-        (anyData.connection as any)?.close?.();
+        (data.connection as any)?.close?.();
         return;
       }
 
       const roomId = data.documentName as string | undefined;
       if (!roomId) {
         console.warn('[hocuspocus] Missing room id (documentName), closing.');
-        (anyData.connection as any)?.close?.();
+        (data.connection as any)?.close?.();
         return;
       }
 
@@ -42,14 +78,14 @@ const hocuspocus = new Hocuspocus({
           console.warn(
             `[hocuspocus] Access denied. Room: ${roomId}, user: ${userData.user.id}`,
           );
-          (anyData.connection as any)?.close?.();
+          (data.connection as any)?.close?.();
           return;
         }
       } catch (err) {
         console.warn(
           `[hocuspocus] Error while checking room access, closing. Room: ${roomId}, user: ${userData.user.id}`,
         );
-        (anyData.connection as any)?.close?.();
+        (data.connection as any)?.close?.();
         return;
       }
 
@@ -57,8 +93,8 @@ const hocuspocus = new Hocuspocus({
         `Client authenticated and authorized. Room: ${roomId}, user: ${userData.user.id}`,
       );
     } catch (err) {
-      console.warn('[hocuspocus] Invalid token, closing connection.');
-      (anyData.connection as any)?.close?.();
+      console.warn('[hocuspocus] Error during authentication, closing connection.');
+      (data.connection as any)?.close?.();
     }
   },
   async onDisconnect(data) {
