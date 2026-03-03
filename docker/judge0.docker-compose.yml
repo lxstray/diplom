@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   server:
-    image: judge0/judge0:latest
+    image: mrkushalsm/judge0:latest
     volumes:
       - ./judge0.conf:/judge0.conf:ro
     ports:
@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   worker:
-    image: judge0/judge0:latest
+    image: mrkushalsm/judge0:latest
     command: ["./scripts/workers"]
     volumes:
       - ./judge0.conf:/judge0.conf:ro

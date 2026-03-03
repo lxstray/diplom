@@ -9,6 +9,7 @@ export interface ConsoleOutputProps {
   isOpen: boolean;
   onClose: () => void;
   output?: {
+    message?: string;
     stdout?: string;
     stderr?: string;
     compile_output?: string;
@@ -124,6 +125,16 @@ export function ConsoleOutput({
 
     return (
       <div className="space-y-4">
+        {/* Judge0 internal message */}
+        {output.message && (
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Message</div>
+            <pre className="bg-muted/50 rounded-md p-3 text-sm font-mono whitespace-pre-wrap overflow-auto max-h-40">
+              {output.message}
+            </pre>
+          </div>
+        )}
+
         {/* Compile errors */}
         {output.compile_output && (
           <div className="space-y-1">
@@ -155,7 +166,7 @@ export function ConsoleOutput({
         )}
 
         {/* No output message */}
-        {!output.stdout && !output.stderr && !output.compile_output && (
+        {!output.stdout && !output.stderr && !output.compile_output && !output.message && (
           <div className="text-muted-foreground text-sm italic">
             Program executed successfully with no output
           </div>

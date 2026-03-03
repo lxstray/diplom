@@ -721,11 +721,11 @@ export default function EditorPage() {
         )}
 
         {/* Editor */}
-        <main className="flex-1 overflow-hidden p-4 flex flex-col">
+        <main className="flex-1 min-h-0 overflow-hidden p-4 flex flex-col">
           {currentRoom ? (
             yFiles && activeFileId && activeYText ? (
-              <div className="flex-1 rounded-md border overflow-hidden flex flex-col">
-                <div className="flex-1">
+              <div className="flex-1 min-h-0 rounded-md border overflow-hidden flex flex-col">
+                <div className="flex-1 min-h-0">
                   <MonacoEditor
                     yText={activeYText}
                     language={language}

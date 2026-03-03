@@ -8,6 +8,7 @@ export interface ExecutionResult {
     id: number;
     description: string;
   };
+  message?: string;
   stdout?: string;
   stderr?: string;
   compile_output?: string;
@@ -36,6 +37,10 @@ interface RateLimitEntry {
 }
 
 const rateLimitMap = new Map<string, RateLimitEntry>();
+
+function encodeBase64Utf8(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64');
+}
 
 function decodeMaybeBase64(value?: string): string | undefined {
   if (!value) return undefined;
@@ -81,14 +86,14 @@ export function checkRateLimit(userId: string): { allowed: boolean; remaining: n
 export async function submitCodeToJudge0(code: string, language: SupportedLanguage): Promise<{ submissionId: string }> {
   const languageId = JUDGE0_LANGUAGES[language] || JUDGE0_LANGUAGES.javascript;
 
-  const response = await fetch(`${JUDGE0_API_URL}/submissions`, {
+  const response = await fetch(`${JUDGE0_API_URL}/submissions?base64_encoded=true`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(process.env.JUDGE0_API_KEY ? { 'X-Auth-Token': process.env.JUDGE0_API_KEY } : {}),
     },
     body: JSON.stringify({
-      source_code: code,
+      source_code: encodeBase64Utf8(code),
       language_id: languageId,
       wait: false, // Don't wait, we'll poll for results
     }),
@@ -107,12 +112,15 @@ export async function submitCodeToJudge0(code: string, language: SupportedLangua
  * Get execution result from Judge0
  */
 export async function getExecutionResult(submissionId: string): Promise<ExecutionResult> {
-  const response = await fetch(`${JUDGE0_API_URL}/submissions/${submissionId}?fields=stdout,stderr,compile_output,time,memory,status,exit_code`, {
+  const response = await fetch(
+    `${JUDGE0_API_URL}/submissions/${submissionId}?base64_encoded=true&fields=stdout,stderr,compile_output,message,time,memory,status,exit_code`,
+    {
     method: 'GET',
     headers: {
       ...(process.env.JUDGE0_API_KEY ? { 'X-Auth-Token': process.env.JUDGE0_API_KEY } : {}),
     },
-  });
+    }
+  );
 
   if (!response.ok) {
     const error = await response.text().catch(() => 'Unknown error');
@@ -127,6 +135,7 @@ export async function getExecutionResult(submissionId: string): Promise<Executio
       id: result.status?.id || 0,
       description: result.status?.description || 'Unknown',
     },
+    message: decodeMaybeBase64(result.message),
     stdout: decodeMaybeBase64(result.stdout),
     stderr: decodeMaybeBase64(result.stderr),
     compile_output: decodeMaybeBase64(result.compile_output),
@@ -148,12 +157,15 @@ export async function pollExecutionResult(
   intervalMs = 100
 ): Promise<ExecutionResult> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const response = await fetch(`${JUDGE0_API_URL}/submissions/${submissionId}?fields=stdout,stderr,compile_output,time,memory,status,exit_code`, {
+    const response = await fetch(
+      `${JUDGE0_API_URL}/submissions/${submissionId}?base64_encoded=true&fields=stdout,stderr,compile_output,message,time,memory,status,exit_code`,
+      {
       method: 'GET',
       headers: {
         ...(process.env.JUDGE0_API_KEY ? { 'X-Auth-Token': process.env.JUDGE0_API_KEY } : {}),
       },
-    });
+      }
+    );
 
     if (!response.ok) {
       const error = await response.text().catch(() => 'Unknown error');
@@ -170,6 +182,7 @@ export async function pollExecutionResult(
           id: result.status.id,
           description: result.status.description || 'Unknown',
         },
+        message: decodeMaybeBase64(result.message),
         stdout: decodeMaybeBase64(result.stdout),
         stderr: decodeMaybeBase64(result.stderr),
         compile_output: decodeMaybeBase64(result.compile_output),

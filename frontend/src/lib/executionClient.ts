@@ -15,6 +15,7 @@ export interface ExecutionResponse {
       id: number;
       description: string;
     };
+    message?: string;
     stdout?: string;
     stderr?: string;
     compile_output?: string;
