@@ -63,8 +63,19 @@ export default function TaskDetailPage() {
   } = useCodeExecution();
 
   // Yjs setup for local-only editing (no collaboration in task mode)
-  const ydoc = new Y.Doc();
-  const yText = ydoc.getText('code');
+  const ydocRef = useRef<Y.Doc | null>(null);
+  if (!ydocRef.current) {
+    ydocRef.current = new Y.Doc();
+  }
+  const ydoc = ydocRef.current;
+
+  const yTextRef = useRef<Y.Text | null>(null);
+  if (!yTextRef.current) {
+    yTextRef.current = ydoc.getText('code');
+  }
+  const yText = yTextRef.current;
+
+  const recordedAttemptForSlugRef = useRef<string | null>(null);
 
   // Sync editor content with local state
   useEffect(() => {
@@ -98,7 +109,11 @@ export default function TaskDetailPage() {
         const { data } = await supabase.auth.getSession();
         if (data.session?.user?.id) {
           setUserId(data.session.user.id);
-          await recordAttempt(slug);
+          // Avoid spamming the backend if effects rerun in dev/StrictMode.
+          if (recordedAttemptForSlugRef.current !== slug) {
+            recordedAttemptForSlugRef.current = slug;
+            await recordAttempt(slug);
+          }
         }
       } catch (error) {
         console.error('Failed to load task:', error);

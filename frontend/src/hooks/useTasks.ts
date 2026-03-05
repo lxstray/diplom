@@ -46,8 +46,13 @@ export function useTasks(): UseTasksResult {
 
       const params = new URLSearchParams();
       if (options?.language) params.set('language', options.language);
-      if (options?.difficulty) params.set('difficulty', options.difficulty);
-      if (options?.status) params.set('status', options.status);
+      // Treat "all" as "no filter" so we don't accidentally filter out everything.
+      if (options?.difficulty && options.difficulty !== 'all') {
+        params.set('difficulty', options.difficulty);
+      }
+      if (options?.status && options.status !== 'all') {
+        params.set('status', options.status);
+      }
 
       const response = await fetch(`${BACKEND_URL}/api/tasks?${params.toString()}`, {
         headers: {

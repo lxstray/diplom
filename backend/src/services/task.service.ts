@@ -154,7 +154,7 @@ export async function getAllTasks(options?: {
 
   // Filter by difficulty
   let filtered = allExercises;
-  if (difficulty) {
+  if (difficulty && difficulty.toLowerCase() !== 'all') {
     const diffLevel = difficulty.toLowerCase();
     filtered = filtered.filter(ex => {
       const level = getDifficultyLevel(ex.difficulty || 1);
