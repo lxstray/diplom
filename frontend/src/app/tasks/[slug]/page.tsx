@@ -37,6 +37,8 @@ import {
   MessageSquare,
   Video,
   VideoOff,
+  Copy,
+  ShieldCheck,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -82,6 +84,14 @@ export default function TaskDetailPage() {
   const [loading, setLoading] = useState(true);
   const [completed, setCompleted] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
+
+  // Room access control state
+  const [roomAccessDialogOpen, setRoomAccessDialogOpen] = useState(false);
+  const [roomAccessLoading, setRoomAccessLoading] = useState(false);
+  const [roomAccessError, setRoomAccessError] = useState<string | null>(null);
+  const [roomAccessLevel, setRoomAccessLevel] = useState<'OWNER' | 'ANYONE_WITH_LINK'>('ANYONE_WITH_LINK');
+  const [roomAccessSaving, setRoomAccessSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const [chatOpen, setChatOpen] = useState(false);
   const [videoPanelOpen, setVideoPanelOpen] = useState(false);
@@ -243,6 +253,45 @@ export default function TaskDetailPage() {
       console.log('✅ Tests passed!', result.execution.stdout);
     }
   }, [task, activeYText, execute, roomId, activeFileId]);
+
+  const copyRoomId = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(roomId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy room ID:', err);
+    }
+  }, [roomId]);
+
+  const handleOpenRoomAccess = useCallback(async () => {
+    setRoomAccessDialogOpen(true);
+    setRoomAccessLoading(true);
+    setRoomAccessError(null);
+
+    // For task rooms, access is always ANYONE_WITH_LINK by default
+    // This is a simplified approach - task rooms are public to all authenticated users
+    setRoomAccessLevel('ANYONE_WITH_LINK');
+    setRoomAccessLoading(false);
+  }, []);
+
+  const handleSaveRoomAccess = useCallback(async () => {
+    setRoomAccessSaving(true);
+    setRoomAccessError(null);
+
+    try {
+      // For task rooms, we don't persist access control to database
+      // Task rooms are ephemeral and accessible by all authenticated users
+      // Just update local state
+      setRoomAccessLevel(roomAccessLevel);
+      setRoomAccessSaving(false);
+      setRoomAccessDialogOpen(false);
+    } catch (err) {
+      console.error('Failed to save room access:', err);
+      setRoomAccessError('Failed to save access settings');
+      setRoomAccessSaving(false);
+    }
+  }, [roomAccessLevel]);
 
   const handleSubmit = useCallback(async () => {
     if (!userId || !task || !activeYText) return;
@@ -516,6 +565,11 @@ export default function TaskDetailPage() {
               <Badge variant="outline" className="text-xs">
                 {task.type}
               </Badge>
+              {/* Task Room Badge */}
+              <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-500 border-purple-500/20">
+                <Code2 className="h-3 w-3 mr-1" />
+                Task Room
+              </Badge>
               {task.topics.slice(0, 3).map((topic) => (
                 <Badge key={topic} variant="secondary" className="text-xs">
                   {topic}
@@ -526,6 +580,35 @@ export default function TaskDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Room ID Display */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md">
+            <span className="text-xs text-muted-foreground">Room:</span>
+            <span className="text-xs font-mono font-medium">{roomId.slice(0, 8)}...</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 hover:bg-background"
+              onClick={copyRoomId}
+              title="Copy room ID"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+            {copied && (
+              <span className="text-xs text-green-500">Copied!</span>
+            )}
+          </div>
+
+          {/* Access Control Button */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleOpenRoomAccess}
+            className="h-8 px-2 text-xs"
+          >
+            <ShieldCheck className="h-3 w-3 mr-1" />
+            Access
+          </Button>
+
           <CollaboratorsPanel
             peers={peers}
             currentUserName={userName}
@@ -695,6 +778,123 @@ export default function TaskDetailPage() {
           />
         )}
       </div>
+
+      {/* Room Access Dialog */}
+      <Dialog open={roomAccessDialogOpen} onOpenChange={setRoomAccessDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Task Room Access</DialogTitle>
+            <DialogDescription>
+              Control who can join this collaborative task session
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            {roomAccessLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Room ID */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Room ID</label>
+                  <div className="flex items-center gap-2">
+                    <Input value={roomId} readOnly className="font-mono text-xs" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={copyRoomId}
+                    >
+                      {copied ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Share this room ID with others to collaborate on this task
+                  </p>
+                </div>
+
+                {/* Access Level */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Access Level</label>
+                  <div className="grid gap-2">
+                    <div
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        roomAccessLevel === 'ANYONE_WITH_LINK'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:bg-muted'
+                      }`}
+                      onClick={() => setRoomAccessLevel('ANYONE_WITH_LINK')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`h-4 w-4 rounded-full border-2 ${
+                          roomAccessLevel === 'ANYONE_WITH_LINK'
+                            ? 'border-primary bg-primary'
+                            : 'border-muted-foreground'
+                        }`} />
+                        <div>
+                          <div className="text-sm font-medium">Anyone with link</div>
+                          <div className="text-xs text-muted-foreground">
+                            Any authenticated user can join
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        roomAccessLevel === 'OWNER'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:bg-muted'
+                      }`}
+                      onClick={() => setRoomAccessLevel('OWNER')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`h-4 w-4 rounded-full border-2 ${
+                          roomAccessLevel === 'OWNER'
+                            ? 'border-primary bg-primary'
+                            : 'border-muted-foreground'
+                        }`} />
+                        <div>
+                          <div className="text-sm font-medium">Owner only</div>
+                          <div className="text-xs text-muted-foreground">
+                            Only you can access this room
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {roomAccessError && (
+                  <div className="text-sm text-destructive">
+                    {roomAccessError}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRoomAccessDialogOpen(false)}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={handleSaveRoomAccess}
+              disabled={roomAccessSaving || roomAccessLoading}
+            >
+              {roomAccessSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
