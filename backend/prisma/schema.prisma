@@ -62,3 +62,38 @@ enum RoomAccessLevel {
   ANYONE_WITH_LINK
 }
 
+model TaskProgress {
+  id        String   @id @default(cuid())
+  userId    String
+  taskSlug  String
+  language  String
+  completed Boolean  @default(false)
+  attempts  Int      @default(0)
+  lastAttemptAt DateTime?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, taskSlug, language])
+  @@index([userId])
+  @@index([userId, completed])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  taskSlug  String
+  language  String
+  action    ActivityAction
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, createdAt])
+}
+
+enum ActivityAction {
+  STARTED
+  COMPLETED
+  SUBMITTED
+}
+

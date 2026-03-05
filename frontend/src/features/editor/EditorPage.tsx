@@ -56,9 +56,13 @@ const MonacoEditor = dynamic(() => import('@/components/MonacoEditor'), {
   ),
 });
 
-export default function EditorPage() {
-  const [roomId, setRoomId] = useState('');
-  const [currentRoom, setCurrentRoom] = useState<string | null>(null);
+interface EditorPageProps {
+  initialRoomId?: string;
+}
+
+export default function EditorPage({ initialRoomId }: EditorPageProps) {
+  const [roomId, setRoomId] = useState(initialRoomId || '');
+  const [currentRoom, setCurrentRoom] = useState<string | null>(initialRoomId || null);
   const [currentProject, setCurrentProject] = useState<string | null>(null);
   const [userName, setUserName] = useState('User');
   const [language, setLanguage] = useState('javascript');
@@ -186,6 +190,13 @@ export default function EditorPage() {
     };
   }, []);
 
+  // Auto-join room if initialRoomId is provided
+  useEffect(() => {
+    if (initialRoomId && userId && !authLoading) {
+      handleJoinRoom(initialRoomId);
+    }
+  }, [initialRoomId, userId, authLoading]);
+
   const handleSignIn = async () => {
     setAuthError(null);
     if (!email.trim() || !password) {
@@ -239,8 +250,8 @@ export default function EditorPage() {
     setCurrentRoom(null);
   };
 
-  const handleJoinRoom = async () => {
-    const targetRoomId = roomId.trim();
+  const handleJoinRoom = async (overrideRoomId?: string) => {
+    const targetRoomId = (overrideRoomId || roomId).trim();
     if (!targetRoomId) return;
 
     try {
@@ -498,7 +509,7 @@ export default function EditorPage() {
                 onChange={(e) => setRoomId(e.target.value)}
                 className="w-40 h-9"
               />
-              <Button onClick={handleJoinRoom} size="sm">
+              <Button onClick={(e) => { e.preventDefault(); handleJoinRoom(); }} size="sm">
                 Join
               </Button>
             </div>

@@ -409,9 +409,6 @@ import { MonacoBinding } from 'y-monaco'
 
 **Features:**
 - [ ] leetcode analogue
-- [ ] Version history(git)
-- [ ] Full authentication flow
-- [ ] Project sharing & permissions
 - [ ] Error handling & logging
 - [ ] Performance optimization
 - [ ] Security hardening

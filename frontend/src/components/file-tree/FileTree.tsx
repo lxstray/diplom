@@ -99,7 +99,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
       const segments = fullPath.split('/');
 
       let currentPath = '/';
-      let parent = root;
+      let parent: any = root;
 
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
@@ -121,7 +121,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
           currentPath =
             currentPath === '/' ? `/${segment}` : `${currentPath}/${segment}`;
 
-          let folder = folderMap.get(currentPath);
+          let folder: any = folderMap.get(currentPath);
           if (!folder) {
             folder = {
               type: 'folder',
