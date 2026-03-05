@@ -71,25 +71,33 @@ const collabServer = new Server({
         return;
       }
 
-      try {
-        const { canAccess } = await roomService.canAccessRoom(
-          roomId,
-          userData.user.id,
-        );
+      const isTaskRoom =
+        roomId.startsWith('task:') ||
+        roomId.startsWith('task-') ||
+        roomId.startsWith('tasks:');
 
-        if (!canAccess) {
+      // Task rooms are collaborative challenge rooms; any signed-in user may join.
+      if (!isTaskRoom) {
+        try {
+          const { canAccess } = await roomService.canAccessRoom(
+            roomId,
+            userData.user.id,
+          );
+
+          if (!canAccess) {
+            console.warn(
+              `[hocuspocus] Access denied. Room: ${roomId}, user: ${userData.user.id}`,
+            );
+            anyData.connection?.close?.();
+            return;
+          }
+        } catch (err) {
           console.warn(
-            `[hocuspocus] Access denied. Room: ${roomId}, user: ${userData.user.id}`,
+            `[hocuspocus] Error while checking room access, closing. Room: ${roomId}, user: ${userData.user.id}`,
           );
           anyData.connection?.close?.();
           return;
         }
-      } catch (err) {
-        console.warn(
-          `[hocuspocus] Error while checking room access, closing. Room: ${roomId}, user: ${userData.user.id}`,
-        );
-        anyData.connection?.close?.();
-        return;
       }
 
       console.log(
