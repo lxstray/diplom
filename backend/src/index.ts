@@ -12,13 +12,20 @@ import * as roomService from './modules/projects/room.service.js';
 
 const collabPort = parseInt(process.env.COLLAB_PORT || '3002', 10);
 
+// Check if a room is a task room (no persistence needed)
+const isTaskRoom = (roomId: string) => {
+  return roomId.startsWith('task:') || roomId.startsWith('task-') || roomId.startsWith('tasks:');
+};
+
 const collabServer = new Server({
   port: collabPort,
   extensions: [
     new Database({
       // Persist document state in Postgres (via Prisma), keyed by roomId (= documentName).
+      // Task rooms are not persisted - they are ephemeral collaborative sessions.
       fetch: async ({ documentName }) => {
         if (!documentName) return null;
+        if (isTaskRoom(documentName)) return null; // No persistence for task rooms
 
         const doc = await prisma.collabDocument.findUnique({
           where: { roomId: documentName },
@@ -33,6 +40,7 @@ const collabServer = new Server({
       },
       store: async ({ documentName, state }) => {
         if (!documentName) return;
+        if (isTaskRoom(documentName)) return; // No persistence for task rooms
 
         await prisma.collabDocument.upsert({
           where: { roomId: documentName },
@@ -71,13 +79,9 @@ const collabServer = new Server({
         return;
       }
 
-      const isTaskRoom =
-        roomId.startsWith('task:') ||
-        roomId.startsWith('task-') ||
-        roomId.startsWith('tasks:');
-
       // Task rooms are collaborative challenge rooms; any signed-in user may join.
-      if (!isTaskRoom) {
+      // Regular rooms require access control check.
+      if (!isTaskRoom(roomId)) {
         try {
           const { canAccess } = await roomService.canAccessRoom(
             roomId,
