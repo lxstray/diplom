@@ -66,6 +66,10 @@ export default function TaskDetailPage() {
   const params = useParams();
   const router = useRouter();
   const slug = params.slug as string;
+  
+  // Get room from query params (for joining existing task rooms)
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const roomParam = searchParams.get('room');
 
   const { getTaskBySlug, completeTask, recordAttempt } = useTasks();
   const { toasts, success, error: showError, removeToast } = useToast();
@@ -99,6 +103,20 @@ export default function TaskDetailPage() {
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
+  // Generate unique room ID for this task session (like /editor does)
+  const [uniqueRoomId, setUniqueRoomId] = useState<string>('');
+  
+  useEffect(() => {
+    if (userId && slug) {
+      // Create unique room ID for this task session
+      const sessionId = crypto.randomUUID().slice(0, 8);
+      setUniqueRoomId(`task-${slug}-${sessionId}`);
+    }
+  }, [userId, slug]);
+
+  // Use unique room ID if available, otherwise fall back to slug-based ID
+  const effectiveRoomId = uniqueRoomId || (userId ? `task-${slug}` : '');
+
   const {
     isRunning,
     error: executionError,
@@ -129,7 +147,7 @@ export default function TaskDetailPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const roomId = useMemo(() => (userId ? `task:${slug}` : ''), [userId, slug]);
+  const roomId = useMemo(() => effectiveRoomId, [effectiveRoomId]);
   const { ydoc, provider, yFiles, yFileTexts, connected, error: collabError, peers } =
     useCollaboration({
       roomId,
@@ -137,6 +155,35 @@ export default function TaskDetailPage() {
     });
 
   const activeFileId = 'solution';
+
+  // Track task completion shared state via Yjs
+  const taskCompletionMapRef = useRef<Y.Map<any> | null>(null);
+  
+  useEffect(() => {
+    if (ydoc) {
+      // Get or create shared task completion state
+      taskCompletionMapRef.current = ydoc.getMap('taskCompletion');
+      
+      // Listen for completion changes from other users
+      const observer = (event: any) => {
+        if (event.changes.keys) {
+          event.changes.keys.forEach((change: any) => {
+            if (change.action === 'update') {
+              const completed = taskCompletionMapRef.current?.get('completed');
+              const completedBy = taskCompletionMapRef.current?.get('completedBy');
+              if (completed && completedBy !== userId) {
+                setCompleted(true);
+                success(`${completedBy} completed the task!`);
+              }
+            }
+          });
+        }
+      };
+      
+      taskCompletionMapRef.current.observeDeep(observer);
+      return () => taskCompletionMapRef.current?.unobserveDeep(observer);
+    }
+  }, [ydoc, userId, success]);
 
   const activeYText = useMemo(() => {
     if (!ydoc || !yFileTexts) return null;
@@ -270,7 +317,6 @@ export default function TaskDetailPage() {
     setRoomAccessError(null);
 
     // For task rooms, access is always ANYONE_WITH_LINK by default
-    // This is a simplified approach - task rooms are public to all authenticated users
     setRoomAccessLevel('ANYONE_WITH_LINK');
     setRoomAccessLoading(false);
   }, []);
@@ -319,9 +365,21 @@ export default function TaskDetailPage() {
 
       // Check if tests passed (status 3 = Accepted, exit code 0)
       if (execResult.success && exitCode === 0 && statusId === 3) {
+        // Mark as completed locally
+        setCompleted(true);
+        
+        // Broadcast completion to all room members via Yjs
+        if (taskCompletionMapRef.current && ydoc) {
+          ydoc.transact(() => {
+            taskCompletionMapRef.current?.set('completed', true);
+            taskCompletionMapRef.current?.set('completedBy', userName);
+            taskCompletionMapRef.current?.set('completedAt', new Date().toISOString());
+          });
+        }
+        
+        // Save to database
         const result = await completeTask(slug, 'javascript');
         if (result.success) {
-          setCompleted(true);
           success('🎉 Task completed successfully!');
         }
       } else {
@@ -344,7 +402,7 @@ export default function TaskDetailPage() {
       console.error('Failed to submit:', error);
       showError('Failed to submit. Please try again.');
     }
-  }, [userId, slug, task, activeYText, execute, roomId, activeFileId, completeTask, success, showError]);
+  }, [userId, slug, task, activeYText, execute, roomId, activeFileId, completeTask, success, showError, userName, ydoc]);
 
   const handleSignIn = async () => {
     setAuthError(null);
@@ -565,11 +623,6 @@ export default function TaskDetailPage() {
               <Badge variant="outline" className="text-xs">
                 {task.type}
               </Badge>
-              {/* Task Room Badge */}
-              <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-500 border-purple-500/20">
-                <Code2 className="h-3 w-3 mr-1" />
-                Task Room
-              </Badge>
               {task.topics.slice(0, 3).map((topic) => (
                 <Badge key={topic} variant="secondary" className="text-xs">
                   {topic}
@@ -583,7 +636,7 @@ export default function TaskDetailPage() {
           {/* Room ID Display */}
           <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md">
             <span className="text-xs text-muted-foreground">Room:</span>
-            <span className="text-xs font-mono font-medium">{roomId.slice(0, 8)}...</span>
+            <span className="text-xs font-mono font-medium">{roomId.slice(5, 13)}...</span>
             <Button
               variant="ghost"
               size="icon"
@@ -783,9 +836,9 @@ export default function TaskDetailPage() {
       <Dialog open={roomAccessDialogOpen} onOpenChange={setRoomAccessDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Task Room Access</DialogTitle>
+            <DialogTitle>Collaborative Session Access</DialogTitle>
             <DialogDescription>
-              Control who can join this collaborative task session
+              Share this room to collaborate on the task with others
             </DialogDescription>
           </DialogHeader>
 
@@ -814,7 +867,7 @@ export default function TaskDetailPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Share this room ID with others to collaborate on this task
+                    Share this room ID with others to collaborate in real-time
                   </p>
                 </div>
 
@@ -860,7 +913,7 @@ export default function TaskDetailPage() {
                             : 'border-muted-foreground'
                         }`} />
                         <div>
-                          <div className="text-sm font-medium">Owner only</div>
+                          <div className="text-sm font-medium">Private room</div>
                           <div className="text-xs text-muted-foreground">
                             Only you can access this room
                           </div>
