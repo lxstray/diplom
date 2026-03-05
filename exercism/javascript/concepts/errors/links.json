@@ -1,0 +1,18 @@
+[
+  {
+    "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Control_flow_and_error_handling#exception_handling_statements",
+    "description": "MDN: Exception Handling"
+  },
+  {
+    "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch",
+    "description": "MDN: try...catch"
+  },
+  {
+    "url": "https://javascript.info/try-catch",
+    "description": "javascript.info: Error Handling"
+  },
+  {
+    "url": "https://javascript.info/custom-errors",
+    "description": "javascript.info: Custom Errors"
+  }
+]

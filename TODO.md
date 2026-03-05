@@ -14,6 +14,7 @@
 - сделать нома иконки для файлов с автоопределением
 - добавить озможность растягивать панели, хотябы панель консоли снизу
 
+ npm run dev EXERCISM_ROOT=~/pers/diplom/exercism/javascript
 
 cd /home/snxwlv/pers/diplom && docker compose -f docker/judge0.docker-compose.yml ps && docker compose -f docker/judge0.docker-compose.yml logs --tail=80 server worker
 Commands (from repo root)

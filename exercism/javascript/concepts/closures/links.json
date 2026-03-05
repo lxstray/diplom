@@ -1,0 +1,14 @@
+[
+  {
+    "url": "https://javascript.info/closure",
+    "description": "javascript.info: Closure"
+  },
+  {
+    "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures",
+    "description": "MDN: Closures"
+  },
+  {
+    "url": "https://en.wikipedia.org/wiki/Closure_(computer_programming)",
+    "description": "Wikipedia: Closure"
+  }
+]
