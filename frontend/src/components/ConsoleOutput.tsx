@@ -32,6 +32,8 @@ export function ConsoleOutput({
   isRunning = false,
   error,
 }: ConsoleOutputProps) {
+  console.log('[ConsoleOutput] Props:', { isOpen, output, isRunning, error });
+
   if (!isOpen) return null;
 
   const hasOutput = output || error || isRunning;
@@ -125,6 +127,14 @@ export function ConsoleOutput({
 
     return (
       <div className="space-y-4">
+        {/* Debug info */}
+        <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
+          Status: {output.status?.id} ({output.status?.description}) | 
+          Exit Code: {output.exit_code} | 
+          Time: {output.time}s | 
+          Memory: {output.memory}KB
+        </div>
+
         {/* Judge0 internal message */}
         {output.message && (
           <div className="space-y-1">
@@ -155,29 +165,22 @@ export function ConsoleOutput({
           </div>
         )}
 
-        {/* Standard output */}
-        {output.stdout && (
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground">Output</div>
-            <pre className="bg-muted/50 rounded-md p-3 text-sm font-mono whitespace-pre-wrap overflow-auto max-h-60">
-              {output.stdout}
-            </pre>
+        {/* Standard output - ALWAYS show this section for test results */}
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground">
+            {output.stdout ? 'Test Output' : 'Output (empty)'}
           </div>
-        )}
-
-        {/* No output message */}
-        {!output.stdout && !output.stderr && !output.compile_output && !output.message && (
-          <div className="text-muted-foreground text-sm italic">
-            Program executed successfully with no output
-          </div>
-        )}
+          <pre className="bg-muted/50 rounded-md p-3 text-sm font-mono whitespace-pre-wrap overflow-auto max-h-60 min-h-[100px]">
+            {output.stdout || '(no output)'}
+          </pre>
+        </div>
       </div>
     );
   };
 
   return (
-    <Card className="border-t-0 rounded-t-none bg-card">
-      <CardHeader className="py-2 px-4 border-b flex flex-row items-center justify-between">
+    <Card className="border-t-0 rounded-t-none bg-card h-full flex flex-col">
+      <CardHeader className="py-2 px-4 border-b flex flex-row items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <Terminal className="h-4 w-4 text-muted-foreground" />
           <CardTitle className="text-sm font-medium">Console</CardTitle>
@@ -195,7 +198,7 @@ export function ConsoleOutput({
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="p-4">
+      <CardContent className="p-4 flex-1 overflow-auto min-h-0">
         {renderOutput()}
       </CardContent>
     </Card>

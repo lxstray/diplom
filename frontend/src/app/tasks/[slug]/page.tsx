@@ -49,6 +49,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { useToast, ToastContainer } from '@/components/Toast';
 
 // Code block renderer for markdown
 const CodeBlock = ({ language, children }: { language?: string; children: string }) => {
@@ -65,6 +66,7 @@ export default function TaskDetailPage() {
   const slug = params.slug as string;
 
   const { getTaskBySlug, completeTask, recordAttempt } = useTasks();
+  const { toasts, success, error: showError, removeToast } = useToast();
 
   // Auth state (same capabilities as /editor)
   const [authLoading, setAuthLoading] = useState(true);
@@ -198,6 +200,13 @@ export default function TaskDetailPage() {
     });
   }, [ydoc, yFiles, task]);
 
+  // Debug: log output changes
+  useEffect(() => {
+    if (output) {
+      console.log('[TaskPage] Output state changed:', output);
+    }
+  }, [output]);
+
   // Initialize the shared editor text with starter code if it is empty.
   useEffect(() => {
     if (!ydoc || !activeYText || !task) return;
@@ -209,7 +218,6 @@ export default function TaskDetailPage() {
   }, [ydoc, activeYText, task]);
 
   const handleRunCode = useCallback(async () => {
-    setConsoleOpen(true);
     if (!task || !activeYText) return;
 
     const source = buildExercismRunSource({
@@ -218,13 +226,23 @@ export default function TaskDetailPage() {
       slug: task.slug,
     });
 
-    await execute({
+    const result = await execute({
       code: source,
       language: 'javascript',
       roomId: roomId || undefined,
       fileId: activeFileId,
     });
-  }, [task, activeYText, execute, roomId]);
+
+    console.log('[TaskPage] Run result:', result);
+
+    // Always open console to show results
+    setConsoleOpen(true);
+
+    // Show success message if tests pass
+    if (result.success && result.execution?.status?.id === 3) {
+      console.log('✅ Tests passed!', result.execution.stdout);
+    }
+  }, [task, activeYText, execute, roomId, activeFileId]);
 
   const handleSubmit = useCallback(async () => {
     if (!userId || !task || !activeYText) return;
@@ -245,19 +263,39 @@ export default function TaskDetailPage() {
         fileId: activeFileId,
       });
 
-      const exitCode = execResult.execution?.exit_code;
-      if (!execResult.success || exitCode !== 0) {
-        return;
-      }
+      console.log('[TaskPage] Submit result:', execResult);
 
-      const result = await completeTask(slug, 'javascript');
-      if (result.success) {
-        setCompleted(true);
+      const exitCode = execResult.execution?.exit_code;
+      const statusId = execResult.execution?.status?.id;
+
+      // Check if tests passed (status 3 = Accepted, exit code 0)
+      if (execResult.success && exitCode === 0 && statusId === 3) {
+        const result = await completeTask(slug, 'javascript');
+        if (result.success) {
+          setCompleted(true);
+          success('🎉 Task completed successfully!');
+        }
+      } else {
+        // Show error if tests failed
+        const stdout = execResult.execution?.stdout || '';
+        const stderr = execResult.execution?.stderr || '';
+        const compileOutput = execResult.execution?.compile_output || '';
+        
+        if (compileOutput) {
+          showError('Compilation failed. Check console for details.');
+        } else if (stderr) {
+          showError('Tests failed. Check console for details.');
+        } else if (stdout.includes('failed')) {
+          showError('Some tests failed. Check console for details.');
+        } else {
+          showError('Submission failed. Please try again.');
+        }
       }
     } catch (error) {
       console.error('Failed to submit:', error);
+      showError('Failed to submit. Please try again.');
     }
-  }, [userId, slug, task, activeYText, execute, roomId, completeTask]);
+  }, [userId, slug, task, activeYText, execute, roomId, activeFileId, completeTask, success, showError]);
 
   const handleSignIn = async () => {
     setAuthError(null);
@@ -602,9 +640,9 @@ export default function TaskDetailPage() {
 
           {/* Right Panel - Editor */}
           <ResizablePanel defaultSize={60} minSize={25}>
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full overflow-hidden">
               {/* Editor */}
-              <div className="flex-1 relative">
+              <div className="flex-1 min-h-0 relative">
                 <MonacoEditor
                   yText={activeYText}
                   language="javascript"
@@ -616,7 +654,7 @@ export default function TaskDetailPage() {
 
               {/* Console Output */}
               {consoleOpen && (
-                <div className="border-t">
+                <div className="flex-shrink-0 border-t bg-card" style={{ height: '250px' }}>
                   <ConsoleOutput
                     isOpen={true}
                     output={output}
@@ -657,6 +695,9 @@ export default function TaskDetailPage() {
           />
         )}
       </div>
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
