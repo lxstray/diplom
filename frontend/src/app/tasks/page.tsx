@@ -143,33 +143,26 @@ export default function TasksPage() {
         return;
       }
 
-      // Check if it's a task room (format: task-{slug}-{id} or task:{slug})
-      const isTaskRoom = targetRoomId.startsWith('task-') || targetRoomId.startsWith('task:');
+      // Check if it's a task room (format: task-{slug}-{id})
+      const isTaskRoom = targetRoomId.startsWith('task-');
       
       if (isTaskRoom) {
-        // For task rooms, extract the slug and redirect to task page
-        // Format: task-{slug}-{sessionId} or task:{slug}
-        let slug: string;
-        if (targetRoomId.startsWith('task-')) {
-          // Extract slug from task-{slug}-{sessionId}
-          const parts = targetRoomId.split('-');
-          if (parts.length >= 3) {
-            // Remove 'task' prefix and session ID suffix
-            slug = parts.slice(1, -1).join('-');
-          } else {
-            throw new Error('Invalid task room ID format');
-          }
-        } else {
-          // Format: task:{slug}
-          slug = targetRoomId.replace('task:', '');
+        // For task rooms, extract the slug and redirect to task page with room param
+        // Format: task-{slug}-{sessionId}
+        const parts = targetRoomId.split('-');
+        if (parts.length < 3) {
+          throw new Error('Invalid task room ID format. Expected: task-{slug}-{id}');
         }
         
-        // Redirect to task page with room parameter
-        window.location.href = `/tasks/${slug}?room=${targetRoomId}`;
+        // Extract slug (everything between 'task' and the last part which is session ID)
+        const slug = parts.slice(1, -1).join('-');
+        
+        // Redirect to task page with room parameter to join existing session
+        window.location.href = `/tasks/${slug}?room=${encodeURIComponent(targetRoomId)}`;
         setJoinRoomDialogOpen(false);
         setJoinRoomId('');
       } else {
-        // Regular room - fetch from API
+        // Regular project room - fetch from API
         const response = await fetch(
           `http://localhost:3001/api/rooms/${targetRoomId}`,
           {

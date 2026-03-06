@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTasks } from '@/hooks/useTasks';
 import { useCollaboration } from '@/hooks/useCollaboration';
@@ -65,10 +65,10 @@ const CodeBlock = ({ language, children }: { language?: string; children: string
 export default function TaskDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const slug = params.slug as string;
   
   // Get room from query params (for joining existing task rooms)
-  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const roomParam = searchParams.get('room');
 
   const { getTaskBySlug, completeTask, recordAttempt } = useTasks();
@@ -91,10 +91,7 @@ export default function TaskDetailPage() {
 
   // Room access control state
   const [roomAccessDialogOpen, setRoomAccessDialogOpen] = useState(false);
-  const [roomAccessLoading, setRoomAccessLoading] = useState(false);
-  const [roomAccessError, setRoomAccessError] = useState<string | null>(null);
   const [roomAccessLevel, setRoomAccessLevel] = useState<'OWNER' | 'ANYONE_WITH_LINK'>('ANYONE_WITH_LINK');
-  const [roomAccessSaving, setRoomAccessSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const [chatOpen, setChatOpen] = useState(false);
@@ -108,11 +105,16 @@ export default function TaskDetailPage() {
   
   useEffect(() => {
     if (userId && slug) {
-      // Create unique room ID for this task session
-      const sessionId = crypto.randomUUID().slice(0, 8);
-      setUniqueRoomId(`task-${slug}-${sessionId}`);
+      // If room param is provided, join that existing room
+      if (roomParam) {
+        setUniqueRoomId(roomParam);
+      } else {
+        // Otherwise create a new unique room ID for this task session
+        const sessionId = crypto.randomUUID().slice(0, 8);
+        setUniqueRoomId(`task-${slug}-${sessionId}`);
+      }
     }
-  }, [userId, slug]);
+  }, [userId, slug, roomParam]);
 
   // Use unique room ID if available, otherwise fall back to slug-based ID
   const effectiveRoomId = uniqueRoomId || (userId ? `task-${slug}` : '');
@@ -265,14 +267,34 @@ export default function TaskDetailPage() {
   }, [output]);
 
   // Initialize the shared editor text with starter code if it is empty.
+  // This ensures all users see the same initial code and sync properly
   useEffect(() => {
-    if (!ydoc || !activeYText || !task) return;
-    if (activeYText.length > 0) return;
-
-    ydoc.transact(() => {
-      activeYText.insert(0, task.starterCode || '');
-    });
-  }, [ydoc, activeYText, task]);
+    if (!ydoc || !yFileTexts || !task) return;
+    
+    // Wait for Yjs to sync with other users first
+    const timeoutId = setTimeout(() => {
+      let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
+      
+      if (!text) {
+        // Create new Y.Text with starter code
+        const newText = new Y.Text(task.starterCode || '');
+        ydoc.transact(() => {
+          yFileTexts.set(activeFileId, newText);
+        });
+        console.log('[TaskPage] Created new Y.Text with starter code');
+      } else if (text.length === 0 && task.starterCode) {
+        // If text exists but is empty (first user), initialize with starter code
+        ydoc.transact(() => {
+          text.insert(0, task.starterCode);
+        });
+        console.log('[TaskPage] Initialized empty Y.Text with starter code');
+      } else {
+        console.log('[TaskPage] Y.Text already has content from other users');
+      }
+    }, 300); // Wait 300ms for initial Yjs sync
+    
+    return () => clearTimeout(timeoutId);
+  }, [ydoc, yFileTexts, task, activeFileId]);
 
   const handleRunCode = useCallback(async () => {
     if (!task || !activeYText) return;
@@ -313,31 +335,15 @@ export default function TaskDetailPage() {
 
   const handleOpenRoomAccess = useCallback(async () => {
     setRoomAccessDialogOpen(true);
-    setRoomAccessLoading(true);
-    setRoomAccessError(null);
-
-    // For task rooms, access is always ANYONE_WITH_LINK by default
+    // Task rooms are always "Anyone with link" by default since they're ephemeral
     setRoomAccessLevel('ANYONE_WITH_LINK');
-    setRoomAccessLoading(false);
   }, []);
 
-  const handleSaveRoomAccess = useCallback(async () => {
-    setRoomAccessSaving(true);
-    setRoomAccessError(null);
-
-    try {
-      // For task rooms, we don't persist access control to database
-      // Task rooms are ephemeral and accessible by all authenticated users
-      // Just update local state
-      setRoomAccessLevel(roomAccessLevel);
-      setRoomAccessSaving(false);
-      setRoomAccessDialogOpen(false);
-    } catch (err) {
-      console.error('Failed to save room access:', err);
-      setRoomAccessError('Failed to save access settings');
-      setRoomAccessSaving(false);
-    }
-  }, [roomAccessLevel]);
+  const handleSaveRoomAccess = useCallback(() => {
+    // For task rooms, access settings are not persisted to backend
+    // They're ephemeral sessions. Just close the dialog.
+    setRoomAccessDialogOpen(false);
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!userId || !task || !activeYText) return;
@@ -843,107 +849,58 @@ export default function TaskDetailPage() {
           </DialogHeader>
 
           <div className="py-4">
-            {roomAccessLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="space-y-4">
+              {/* Room ID */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Room ID</label>
+                <div className="flex items-center gap-2">
+                  <Input value={roomId} readOnly className="font-mono text-xs" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={copyRoomId}
+                  >
+                    {copied ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Share this room ID with others to collaborate in real-time
+                </p>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Room ID */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Room ID</label>
+
+              {/* Access Level Info */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Access Level</label>
+                <div className="p-3 border rounded-lg bg-primary/5 border-primary/20">
                   <div className="flex items-center gap-2">
-                    <Input value={roomId} readOnly className="font-mono text-xs" />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={copyRoomId}
-                    >
-                      {copied ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
+                    <div className="h-4 w-4 rounded-full border-2 border-primary bg-primary" />
+                    <div>
+                      <div className="text-sm font-medium">Anyone with link</div>
+                      <div className="text-xs text-muted-foreground">
+                        Any authenticated user can join this session
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Share this room ID with others to collaborate in real-time
+                </div>
+                <div className="rounded-md bg-blue-500/10 border border-blue-500/20 p-3">
+                  <p className="text-xs text-blue-500">
+                    <strong>Note:</strong> Task collaboration sessions are temporary and don't persist access settings. 
+                    Anyone with the room ID can join while the session is active.
                   </p>
                 </div>
-
-                {/* Access Level */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Access Level</label>
-                  <div className="grid gap-2">
-                    <div
-                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                        roomAccessLevel === 'ANYONE_WITH_LINK'
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:bg-muted'
-                      }`}
-                      onClick={() => setRoomAccessLevel('ANYONE_WITH_LINK')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`h-4 w-4 rounded-full border-2 ${
-                          roomAccessLevel === 'ANYONE_WITH_LINK'
-                            ? 'border-primary bg-primary'
-                            : 'border-muted-foreground'
-                        }`} />
-                        <div>
-                          <div className="text-sm font-medium">Anyone with link</div>
-                          <div className="text-xs text-muted-foreground">
-                            Any authenticated user can join
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                        roomAccessLevel === 'OWNER'
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:bg-muted'
-                      }`}
-                      onClick={() => setRoomAccessLevel('OWNER')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`h-4 w-4 rounded-full border-2 ${
-                          roomAccessLevel === 'OWNER'
-                            ? 'border-primary bg-primary'
-                            : 'border-muted-foreground'
-                        }`} />
-                        <div>
-                          <div className="text-sm font-medium">Private room</div>
-                          <div className="text-xs text-muted-foreground">
-                            Only you can access this room
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {roomAccessError && (
-                  <div className="text-sm text-destructive">
-                    {roomAccessError}
-                  </div>
-                )}
               </div>
-            )}
+            </div>
           </div>
 
           <DialogFooter>
             <Button
-              variant="outline"
-              onClick={() => setRoomAccessDialogOpen(false)}
+              onClick={handleSaveRoomAccess}
             >
               Close
-            </Button>
-            <Button
-              onClick={handleSaveRoomAccess}
-              disabled={roomAccessSaving || roomAccessLoading}
-            >
-              {roomAccessSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -94,7 +94,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
   const [clientId] = useState(() => crypto.randomUUID());
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
-  const { ydoc, yFiles, yFileTexts, connected, error, provider, peers } = useCollaboration({
+  const { ydoc, yFiles, yFileTexts, connected, synced, error, provider, peers } = useCollaboration({
     roomId: currentRoom || '',
     userName,
   });
@@ -141,7 +141,8 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
     let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
 
     if (!text) {
-      const newText = new Y.Text();
+      // Create new Y.Text and initialize it with empty content
+      const newText = new Y.Text('');
       ydoc.transact(() => {
         yFileTexts.set(activeFileId, newText);
       });
@@ -378,7 +379,12 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
     setRoomAccessDialogOpen(true);
     setRoomAccessLoading(true);
     setRoomAccessError(null);
+    await loadRoomAccess();
+  };
 
+  const loadRoomAccess = useCallback(async () => {
+    if (!currentRoom) return;
+    
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
@@ -412,7 +418,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
     } finally {
       setRoomAccessLoading(false);
     }
-  };
+  }, [currentRoom, userId]);
 
   const handleCreateProject = async () => {
     try {
@@ -799,7 +805,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
         {/* Editor */}
         <main className="flex-1 min-h-0 overflow-hidden p-4 flex flex-col relative">
           {currentRoom ? (
-            yFiles && activeFileId && activeYText ? (
+            yFiles && activeFileId && activeYText && synced ? (
               <div className="flex-1 min-h-0 rounded-md border overflow-hidden flex flex-col relative">
                 <div className="flex-1 min-h-0 relative">
                   <MonacoEditor
@@ -828,7 +834,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
               </div>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground text-lg">
-                Create a file to start editing
+                {synced ? 'Create a file to start editing' : 'Syncing with server...'}
               </div>
             )
           ) : (
@@ -1012,7 +1018,8 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                         );
                       }
 
-                      setRoomAccessLevel('OWNER');
+                      // Refresh room data to ensure UI is in sync with server
+                      await loadRoomAccess();
                     } catch (err) {
                       setRoomAccessError(
                         err instanceof Error
@@ -1070,7 +1077,8 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                         );
                       }
 
-                      setRoomAccessLevel('ANYONE_WITH_LINK');
+                      // Refresh room data to ensure UI is in sync with server
+                      await loadRoomAccess();
                     } catch (err) {
                       setRoomAccessError(
                         err instanceof Error

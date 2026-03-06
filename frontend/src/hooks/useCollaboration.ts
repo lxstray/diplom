@@ -20,6 +20,7 @@ export interface UseCollaborationResult {
   yFiles: Y.Map<FileMetadata> | null;
   yFileTexts: Y.Map<Y.Text> | null;
   connected: boolean;
+  synced: boolean;
   error: string | null;
   peers: { id: string; name: string }[];
 }
@@ -36,6 +37,7 @@ export function useCollaboration({
   const [yFiles, setYFiles] = useState<Y.Map<FileMetadata> | null>(null);
   const [yFileTexts, setYFileTexts] = useState<Y.Map<Y.Text> | null>(null);
   const [connected, setConnected] = useState(false);
+  const [synced, setSynced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [peers, setPeers] = useState<{ id: string; name: string }[]>([]);
 
@@ -56,6 +58,7 @@ export function useCollaboration({
       setYFiles(null);
       setYFileTexts(null);
       setConnected(false);
+      setSynced(false);
       setError(null);
       setPeers([]);
       return;
@@ -93,6 +96,10 @@ export function useCollaboration({
           } else {
             setError(null);
           }
+        },
+        onSynced: (isSynced: boolean) => {
+          setSynced(isSynced);
+          console.log('[useCollaboration] Synced:', isSynced, 'room:', roomId);
         },
         onConnect: () => {
           console.log('Connected to collaboration room:', roomId);
@@ -159,9 +166,10 @@ export function useCollaboration({
       }
       setProvider(null);
       setConnected(false);
+      setSynced(false);
       setPeers([]);
     };
   }, [roomId, userName]);
 
-  return { ydoc, provider, yFiles, yFileTexts, connected, error, peers };
+  return { ydoc, provider, yFiles, yFileTexts, connected, synced, error, peers };
 }
