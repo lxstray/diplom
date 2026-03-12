@@ -94,7 +94,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
   const [clientId] = useState(() => crypto.randomUUID());
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
-  const { ydoc, yFiles, yFileTexts, connected, synced, error, provider, peers } = useCollaboration({
+  const { ydoc, yFiles, yFileTexts, connected, error, provider, peers } = useCollaboration({
     roomId: currentRoom || '',
     userName,
   });
@@ -168,6 +168,53 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
       }
     }
   }, [yFiles, activeFileId]);
+
+  // Initialize Y.Text for files that don't have content yet
+  // This is critical for sync - ensures all users see the same content
+  useEffect(() => {
+    if (!ydoc || !yFileTexts || !yFiles) return;
+
+    const initFileContent = (fileId: string) => {
+      let text = yFileTexts.get(fileId) as Y.Text | undefined;
+      
+      if (!text) {
+        // Create new Y.Text initialized with empty string
+        const newText = new Y.Text('');
+        ydoc.transact(() => {
+          yFileTexts.set(fileId, newText);
+        });
+        console.log('[EditorPage] Initialized Y.Text for file:', fileId);
+      }
+    };
+
+    // Initialize all existing files
+    for (const [fileId, _metadata] of Array.from(yFiles.entries())) {
+      initFileContent(fileId);
+    }
+
+    // Observe yFiles for new files being created
+    const observer = (event: any) => {
+      if (event.changes && event.changes.keys) {
+        event.changes.keys.forEach((change: any) => {
+          if (change.action === 'add' || change.action === 'update') {
+            const fileId = change.action === 'add' ? change.action : change.action;
+            // Re-check all files to ensure content is initialized
+            setTimeout(() => {
+              for (const [fid, _metadata] of Array.from(yFiles.entries())) {
+                initFileContent(fid);
+              }
+            }, 50);
+          }
+        });
+      }
+    };
+
+    yFiles.observeDeep(observer);
+    
+    return () => {
+      yFiles.unobserveDeep(observer);
+    };
+  }, [ydoc, yFileTexts, yFiles]);
 
   useEffect(() => {
     const {
@@ -805,7 +852,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
         {/* Editor */}
         <main className="flex-1 min-h-0 overflow-hidden p-4 flex flex-col relative">
           {currentRoom ? (
-            yFiles && activeFileId && activeYText && synced ? (
+            yFiles && activeFileId && activeYText ? (
               <div className="flex-1 min-h-0 rounded-md border overflow-hidden flex flex-col relative">
                 <div className="flex-1 min-h-0 relative">
                   <MonacoEditor
@@ -834,7 +881,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
               </div>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground text-lg">
-                {synced ? 'Create a file to start editing' : 'Syncing with server...'}
+                Create a file to start editing
               </div>
             )
           ) : (
