@@ -163,15 +163,49 @@ export default function TaskDetailPage() {
 
   // Track task completion shared state via Yjs
   const taskCompletionMapRef = useRef<Y.Map<any> | null>(null);
-  const roomAccessMapRef = useRef<Y.Map<any> | null>(null);
+  
+  // Track if we've already synced completion to database to avoid duplicate calls
+  const completionSyncedRef = useRef(false);
+
+  // Load room access from API on mount
+  useEffect(() => {
+    if (!ydoc || !roomId || !userId) return;
+
+    const loadRoomAccess = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const accessToken = data.session?.access_token;
+        if (!accessToken) return;
+
+        const response = await fetch(`http://localhost:3001/api/task-rooms/${roomId}/access`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        if (response.ok) {
+          const { session } = await response.json();
+          if (session) {
+            setRoomAccessLevel(session.accessLevel);
+            setRoomIsOwner(session.ownerId === userId);
+          }
+        } else if (response.status === 404) {
+          // Session doesn't exist yet, will be created on first WebSocket connection
+          setRoomIsOwner(true);
+          setRoomAccessLevel('ANYONE_WITH_LINK');
+        }
+      } catch (err) {
+        console.error('[TaskPage] Failed to load room access:', err);
+      }
+    };
+
+    loadRoomAccess();
+  }, [roomId, userId, ydoc]);
 
   useEffect(() => {
     if (ydoc) {
       // Get or create shared task completion state
       taskCompletionMapRef.current = ydoc.getMap('taskCompletion');
-      
-      // Get or create room access control state
-      roomAccessMapRef.current = ydoc.getMap('roomAccess');
 
       // Listen for completion changes from other users
       const observer = (event: any) => {
@@ -184,6 +218,19 @@ export default function TaskDetailPage() {
               if (completed && completedBy !== userId) {
                 setCompleted(true);
                 console.log('[TaskPage] Task completed by:', completedBy);
+                
+                // Sync to database for current user (only once per session)
+                if (!completionSyncedRef.current && userId && slug) {
+                  completionSyncedRef.current = true;
+                  completeTask(slug, 'javascript')
+                    .then((result) => {
+                      console.log('[TaskPage] Synced task completion to database for user:', userId, result);
+                    })
+                    .catch((err) => {
+                      console.error('[TaskPage] Failed to sync task completion to database:', err);
+                    });
+                }
+                
                 // Only show toast if we haven't already completed it ourselves
                 if (!completed) {
                   success(`${completedBy} completed the task!`);
@@ -199,49 +246,24 @@ export default function TaskDetailPage() {
       const initialCompletedBy = taskCompletionMapRef.current?.get('completedBy');
       if (initialCompleted && initialCompletedBy !== userId) {
         setCompleted(true);
-      }
-
-      // Listen for room access changes
-      const accessObserver = (event: any) => {
-        if (event.changes.keys) {
-          event.changes.keys.forEach((change: any) => {
-            if (change.action === 'add' || change.action === 'update') {
-              const accessLevel = roomAccessMapRef.current?.get('accessLevel');
-              const ownerId = roomAccessMapRef.current?.get('ownerId');
-              if (accessLevel) {
-                setRoomAccessLevel(accessLevel);
-              }
-              if (ownerId) {
-                setRoomIsOwner(ownerId === userId);
-              }
-            }
-          });
-        }
-      };
-
-      // Initialize room access if not exists (creator becomes owner)
-      if (!roomAccessMapRef.current?.get('ownerId')) {
-        ydoc.transact(() => {
-          roomAccessMapRef.current?.set('ownerId', userId);
-          roomAccessMapRef.current?.set('accessLevel', 'ANYONE_WITH_LINK');
-        });
-        setRoomIsOwner(true);
-      } else {
-        const existingOwnerId = roomAccessMapRef.current?.get('ownerId');
-        const existingAccessLevel = roomAccessMapRef.current?.get('accessLevel');
-        setRoomIsOwner(existingOwnerId === userId);
-        if (existingAccessLevel) {
-          setRoomAccessLevel(existingAccessLevel);
+        
+        // Sync initial completion state to database for current user
+        if (!completionSyncedRef.current && userId && slug) {
+          completionSyncedRef.current = true;
+          completeTask(slug, 'javascript')
+            .then((result) => {
+              console.log('[TaskPage] Synced initial task completion to database for user:', userId, result);
+            })
+            .catch((err) => {
+              console.error('[TaskPage] Failed to sync initial task completion to database:', err);
+            });
         }
       }
 
-      roomAccessMapRef.current.observeDeep(accessObserver);
-      return () => {
-        taskCompletionMapRef.current?.unobserveDeep(observer);
-        roomAccessMapRef.current?.unobserveDeep(accessObserver);
-      };
+      taskCompletionMapRef.current.observeDeep(observer);
+      return () => taskCompletionMapRef.current?.unobserveDeep(observer);
     }
-  }, [ydoc, userId, success]);
+  }, [ydoc, userId, success, slug, completeTask]);
 
   const { remoteCursors, updateCursorPosition } = useCursorPresence({
     provider,
@@ -399,21 +421,41 @@ export default function TaskDetailPage() {
   }, []);
 
   const handleUpdateRoomAccess = useCallback(async (newAccessLevel: 'OWNER' | 'ANYONE_WITH_LINK') => {
-    if (!roomAccessMapRef.current || !ydoc) return;
+    if (!roomId) return;
     
     setRoomAccessSaving(true);
     try {
-      ydoc.transact(() => {
-        roomAccessMapRef.current?.set('accessLevel', newAccessLevel);
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        console.error('[TaskPage] No access token for updating room access');
+        return;
+      }
+
+      const response = await fetch(`http://localhost:3001/api/task-rooms/${roomId}/access`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ accessLevel: newAccessLevel }),
       });
-      setRoomAccessLevel(newAccessLevel);
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || `Failed to update room access (${response.status})`);
+      }
+
+      const { session } = await response.json();
+      setRoomAccessLevel(session.accessLevel);
+      setRoomIsOwner(session.ownerId === userId);
       console.log('[TaskPage] Room access updated to:', newAccessLevel);
     } catch (err) {
       console.error('[TaskPage] Failed to update room access:', err);
     } finally {
       setRoomAccessSaving(false);
     }
-  }, [ydoc]);
+  }, [roomId, userId]);
 
   const handleSubmit = useCallback(async () => {
     if (!userId || !task || !activeYText) return;
@@ -427,6 +469,8 @@ export default function TaskDetailPage() {
         slug: task.slug,
       });
 
+      console.log('[TaskPage] Running tests with source length:', source.length);
+
       const execResult = await execute({
         code: source,
         language: 'javascript',
@@ -435,6 +479,12 @@ export default function TaskDetailPage() {
       });
 
       console.log('[TaskPage] Submit result:', execResult);
+      console.log('[TaskPage] Execution details:', {
+        success: execResult.success,
+        error: execResult.error,
+        details: execResult.details,
+        execution: execResult.execution,
+      });
 
       // Extract execution details safely
       const execution = execResult.execution;
@@ -470,16 +520,23 @@ export default function TaskDetailPage() {
         
         if (result.success) {
           success('🎉 Task completed successfully!');
+          
+          // Dispatch custom event to notify tasks page to refresh stats
+          window.dispatchEvent(new CustomEvent('task-completed', { 
+            detail: { slug, taskDifficulty: task.difficulty } 
+          }));
         } else {
           console.warn('[TaskPage] Database completion returned non-success:', result);
         }
       } else {
         // Show error if tests failed
-        if (compileOutput) {
+        if (execResult.error) {
+          showError(execResult.error);
+        } else if (compileOutput) {
           showError('Compilation failed. Check console for details.');
         } else if (stderr) {
           showError('Tests failed. Check console for details.');
-        } else if (stdout.includes('failed')) {
+        } else if (stdout && stdout.includes('failed')) {
           showError('Some tests failed. Check console for details.');
         } else {
           showError('Submission failed. Please try again.');
@@ -487,7 +544,7 @@ export default function TaskDetailPage() {
       }
     } catch (error) {
       console.error('Failed to submit:', error);
-      showError('Failed to submit. Please try again.');
+      showError(error instanceof Error ? error.message : 'Failed to submit. Please try again.');
     }
   }, [userId, slug, task, activeYText, execute, roomId, activeFileId, completeTask, success, showError, userName, ydoc]);
 

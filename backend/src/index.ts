@@ -9,6 +9,7 @@ import { executionRoutes } from './modules/execution/execution.routes.js';
 import { signalingRoutes } from './modules/webrtc/signaling.routes.js';
 import { taskRoutes } from './routes/task.routes.js';
 import * as roomService from './modules/projects/room.service.js';
+import * as taskRoomSessionService from './services/taskRoomSession.service.js';
 
 const collabPort = parseInt(process.env.COLLAB_PORT || '3002', 10);
 
@@ -79,33 +80,63 @@ const collabServer = new Server({
         return;
       }
 
-      // Task rooms are collaborative challenge rooms; any signed-in user may join.
-      // Regular rooms require access control check.
-      if (!isTaskRoom(roomId)) {
+      const userId = userData.user.id;
+
+      // Check task room access
+      if (isTaskRoom(roomId)) {
+        const { canAccess, session } = await taskRoomSessionService.canAccessTaskRoom(
+          roomId,
+          userId
+        );
+
+        if (!canAccess) {
+          console.warn(
+            `[hocuspocus] Access denied to task room. Room: ${roomId}, user: ${userId}, accessLevel: ${session?.accessLevel}, owner: ${session?.ownerId}`,
+          );
+          // Reject authentication by returning false - this properly closes the WebSocket
+          return false;
+        }
+
+        // Create session if it doesn't exist (first user to join becomes owner)
+        if (!session) {
+          // Extract task slug from room ID: task-{slug}-{sessionId}
+          const parts = roomId.split('-');
+          const taskSlug = parts.slice(1, parts.length - 1).join('-');
+          await taskRoomSessionService.createOrGetTaskRoomSession(roomId, taskSlug, userId);
+          console.log(`[hocuspocus] Created task room session. Room: ${roomId}, owner: ${userId}, taskSlug: ${taskSlug}`);
+        }
+
+        console.log(
+          `[hocuspocus] Task room access granted. Room: ${roomId}, user: ${userId}, accessLevel: ${session?.accessLevel}`,
+        );
+      } else {
+        // Regular rooms require access control check
         try {
           const { canAccess } = await roomService.canAccessRoom(
             roomId,
-            userData.user.id,
+            userId,
           );
 
           if (!canAccess) {
             console.warn(
-              `[hocuspocus] Access denied. Room: ${roomId}, user: ${userData.user.id}`,
+              `[hocuspocus] Access denied. Room: ${roomId}, user: ${userId}`,
             );
-            anyData.connection?.close?.();
-            return;
+            throw new Error('Access denied');
           }
         } catch (err) {
+          if ((err as Error).message === 'Access denied') {
+            throw err;
+          }
           console.warn(
-            `[hocuspocus] Error while checking room access, closing. Room: ${roomId}, user: ${userData.user.id}`,
+            `[hocuspocus] Error while checking room access, closing. Room: ${roomId}, user: ${userId}`,
+            err
           );
-          anyData.connection?.close?.();
-          return;
+          throw new Error('Access check failed');
         }
       }
 
       console.log(
-        `Client authenticated and authorized. Room: ${roomId}, user: ${userData.user.id}`,
+        `Client authenticated and authorized. Room: ${roomId}, user: ${userId}`,
       );
     } catch (err) {
       console.warn('[hocuspocus] Error during authentication, closing connection.');

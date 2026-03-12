@@ -67,6 +67,44 @@ export default function TasksPage() {
     }
   }, [userId, authChecked, difficulty, status, loadTasks, getStats]);
 
+  // Refresh stats when page becomes visible (e.g., after returning from task detail)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && userId) {
+        getStats().then(setStats).catch(console.error);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [userId, getStats]);
+
+  // Refresh stats on focus
+  useEffect(() => {
+    const handleFocus = () => {
+      if (userId) {
+        getStats().then(setStats).catch(console.error);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [userId, getStats]);
+
+  // Listen for task completion events from task detail page
+  useEffect(() => {
+    const handleTaskCompleted = () => {
+      if (userId) {
+        console.log('[TasksPage] Task completed event received, refreshing stats');
+        getStats().then(setStats).catch(console.error);
+        loadTasks({ status: status as any, difficulty });
+      }
+    };
+
+    window.addEventListener('task-completed', handleTaskCompleted);
+    return () => window.removeEventListener('task-completed', handleTaskCompleted);
+  }, [userId, getStats, loadTasks, status, difficulty]);
+
   const handleClearFilters = useCallback(() => {
     setDifficulty('all');
     setStatus('all');

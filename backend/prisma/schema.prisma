@@ -62,6 +62,19 @@ enum RoomAccessLevel {
   ANYONE_WITH_LINK
 }
 
+model TaskRoomSession {
+  id          String   @id @default(cuid())
+  roomId      String   @unique  // The task room ID (e.g., "task-foo-abc123")
+  taskSlug    String
+  ownerId     String   // User ID of the session creator
+  accessLevel RoomAccessLevel @default(ANYONE_WITH_LINK)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([roomId])
+  @@index([ownerId])
+}
+
 model TaskProgress {
   id        String   @id @default(cuid())
   userId    String

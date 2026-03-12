@@ -6,6 +6,7 @@ import {
   completeTaskSchema,
 } from '../schemas/task.js';
 import * as taskService from '../services/task.service.js';
+import * as taskRoomSessionService from '../services/taskRoomSession.service.js';
 import { requireAuth } from '../auth.js';
 
 export async function taskRoutes(fastify: FastifyInstance) {
@@ -174,6 +175,96 @@ export async function taskRoutes(fastify: FastifyInstance) {
       } catch (error) {
         fastify.log.error({ error: 'Failed to get progress' }, (error as Error).message);
         reply.code(500).send({ error: 'Failed to fetch progress' });
+      }
+    },
+  );
+
+  // Get task room access info
+  fastify.get(
+    '/api/task-rooms/:roomId/access',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      try {
+        const { roomId } = request.params as { roomId: string };
+        const userId = request.authUser!.id;
+
+        const { canAccess, session } = await taskRoomSessionService.canAccessTaskRoom(
+          roomId,
+          userId
+        );
+
+        if (!canAccess) {
+          reply.code(403).send({ error: 'Access denied' });
+          return;
+        }
+
+        return {
+          session: session ? {
+            roomId: session.roomId,
+            ownerId: session.ownerId,
+            accessLevel: session.accessLevel,
+          } : null,
+        };
+      } catch (error) {
+        fastify.log.error({ error: 'Failed to get task room access' }, (error as Error).message);
+        reply.code(500).send({ error: 'Failed to fetch task room access' });
+      }
+    },
+  );
+
+  // Update task room access level
+  fastify.patch(
+    '/api/task-rooms/:roomId/access',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      try {
+        const { roomId } = request.params as { roomId: string };
+        const userId = request.authUser!.id;
+        const body = z.object({
+          accessLevel: z.enum(['OWNER', 'ANYONE_WITH_LINK']),
+        }).parse(request.body);
+
+        // Check if user is the owner
+        const session = await taskRoomSessionService.getTaskRoomSession(roomId);
+        
+        if (!session) {
+          reply.code(404).send({ error: 'Task room session not found' });
+          return;
+        }
+
+        if (session.ownerId !== userId) {
+          reply.code(403).send({ error: 'Only the room owner can change access' });
+          return;
+        }
+
+        const updated = await taskRoomSessionService.updateTaskRoomSessionAccess(
+          roomId,
+          body.accessLevel
+        );
+
+        if (!updated) {
+          reply.code(500).send({ error: 'Failed to update room access' });
+          return;
+        }
+
+        return {
+          session: {
+            roomId: updated.roomId,
+            ownerId: updated.ownerId,
+            accessLevel: updated.accessLevel,
+          },
+        };
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          reply.code(400).send({ error: 'Validation failed', details: error.errors });
+          return;
+        }
+        fastify.log.error({ error: 'Failed to update task room access' }, (error as Error).message);
+        reply.code(500).send({ error: 'Failed to update task room access' });
       }
     },
   );
