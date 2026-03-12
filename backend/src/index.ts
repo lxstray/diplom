@@ -65,28 +65,32 @@ const collabServer = new Server({
       return;
     }
 
+    const { data: userData, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !userData?.user) {
+      console.warn('[hocuspocus] Invalid token, closing connection.');
+      anyData.connection?.close?.();
+      return;
+    }
+
+    const roomId = anyData.documentName as string | undefined;
+    if (!roomId) {
+      console.warn('[hocuspocus] Missing room id (documentName), closing.');
+      anyData.connection?.close?.();
+      return;
+    }
+
+    const userId = userData.user.id;
+
     try {
-      const { data: userData, error } = await supabaseAdmin.auth.getUser(token);
-      if (error || !userData?.user) {
-        console.warn('[hocuspocus] Invalid token, closing connection.');
-        anyData.connection?.close?.();
-        return;
-      }
-
-      const roomId = anyData.documentName as string | undefined;
-      if (!roomId) {
-        console.warn('[hocuspocus] Missing room id (documentName), closing.');
-        anyData.connection?.close?.();
-        return;
-      }
-
-      const userId = userData.user.id;
-
       // Check task room access
       if (isTaskRoom(roomId)) {
         const { canAccess, session } = await taskRoomSessionService.canAccessTaskRoom(
           roomId,
           userId
+        );
+
+        console.log(
+          `[hocuspocus] Task room access check. Room: ${roomId}, user: ${userId}, canAccess: ${canAccess}, session: ${session ? 'exists' : 'null'}, accessLevel: ${session?.accessLevel}, ownerId: ${session?.ownerId}`,
         );
 
         if (!canAccess) {
@@ -102,8 +106,10 @@ const collabServer = new Server({
           // Extract task slug from room ID: task-{slug}-{sessionId}
           const parts = roomId.split('-');
           const taskSlug = parts.slice(1, parts.length - 1).join('-');
-          await taskRoomSessionService.createOrGetTaskRoomSession(roomId, taskSlug, userId);
-          console.log(`[hocuspocus] Created task room session. Room: ${roomId}, owner: ${userId}, taskSlug: ${taskSlug}`);
+          const newSession = await taskRoomSessionService.createOrGetTaskRoomSession(roomId, taskSlug, userId);
+          console.log(`[hocuspocus] Created task room session. Room: ${roomId}, owner: ${userId}, taskSlug: ${taskSlug}, finalOwnerId: ${newSession.ownerId}`);
+        } else {
+          console.log(`[hocuspocus] Using existing task room session. Room: ${roomId}, ownerId: ${session.ownerId}, accessLevel: ${session.accessLevel}`);
         }
 
         console.log(
@@ -128,10 +134,23 @@ const collabServer = new Server({
         `Client authenticated and authorized. Room: ${roomId}, user: ${userId}`,
       );
     } catch (err) {
-      console.warn('[hocuspocus] Authentication failed:', (err as Error).message);
+      const errorMessage = (err as Error).message;
+      
+      // Access denied errors - re-throw for Hocuspocus to reject the connection
+      if (errorMessage.includes('Access denied')) {
+        console.warn('[hocuspocus] Access denied:', errorMessage);
+        throw err;
+      }
+      
+      // For other unexpected errors, log and close connection
+      console.warn('[hocuspocus] Unexpected authentication error:', errorMessage);
       anyData.connection?.close?.();
-      throw err; // Re-throw to properly signal authentication failure
+      throw err;
     }
+  },
+  async onConnect(data) {
+    const anyData = data as any;
+    console.log(`[hocuspocus] Client connected successfully. Room: ${anyData.documentName}`);
   },
   async onDisconnect(data) {
     const anyData = data as any;
