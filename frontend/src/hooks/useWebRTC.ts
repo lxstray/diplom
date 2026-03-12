@@ -47,6 +47,7 @@ export function useWebRTC({
   const peersRef = useRef<Map<string, SimplePeerInstance>>(new Map());
   const streamRef = useRef<MediaStream | null>(null);
   const initializedRef = useRef(false);
+  const pendingPeersRef = useRef<Set<string>>(new Set());
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -54,6 +55,7 @@ export function useWebRTC({
       peer.destroy();
     });
     peersRef.current.clear();
+    pendingPeersRef.current.clear();
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -84,6 +86,12 @@ export function useWebRTC({
       initiator: boolean,
       stream?: MediaStream
     ): SimplePeerInstance => {
+      // Don't create duplicate peers
+      if (peersRef.current.has(targetPeerId)) {
+        console.log('[WebRTC] Peer already exists for', targetPeerId);
+        return peersRef.current.get(targetPeerId)!;
+      }
+
       const peer = new Peer({
         initiator,
         trickle: true,
@@ -112,6 +120,7 @@ export function useWebRTC({
 
       peer.on('close', () => {
         peersRef.current.delete(targetPeerId);
+        pendingPeersRef.current.delete(targetPeerId);
         setRemoteStreams((prev) =>
           prev.filter((s) => s.peerId !== targetPeerId)
         );
@@ -120,9 +129,18 @@ export function useWebRTC({
       peer.on('error', (err: Error) => {
         console.error('[WebRTC] Peer error:', err);
         setError(err.message);
+        // Clean up peer on error
+        peersRef.current.delete(targetPeerId);
+        pendingPeersRef.current.delete(targetPeerId);
+      });
+
+      peer.on('connect', () => {
+        console.log('[WebRTC] Connected to peer:', targetPeerId);
+        pendingPeersRef.current.delete(targetPeerId);
       });
 
       peersRef.current.set(targetPeerId, peer);
+      pendingPeersRef.current.add(targetPeerId);
       return peer;
     },
     [userId, roomId, sendSignalingMessage]
@@ -138,12 +156,25 @@ export function useWebRTC({
       let peer = peersRef.current.get(from);
 
       if (!peer) {
+        // Check if we're already connecting to this peer
+        if (pendingPeersRef.current.has(from)) {
+          console.log('[WebRTC] Already connecting to peer:', from);
+          return;
+        }
+
         // Deterministic initiator selection so only one side acts as initiator
         const shouldInitiate = userId < from;
         peer = createPeer(from, shouldInitiate, streamRef.current || undefined);
       }
 
-      peer.signal(payload);
+      // Only process signal if peer is not already connected
+      // This prevents "Cannot set remote answer in state stable" error
+      try {
+        peer.signal(payload);
+      } catch (err) {
+        console.warn('[WebRTC] Failed to process signal from', from, err);
+        // Ignore errors for already-established connections
+      }
     },
     [userId, roomId, createPeer]
   );

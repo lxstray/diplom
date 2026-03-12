@@ -92,6 +92,8 @@ export default function TaskDetailPage() {
   // Room access control state
   const [roomAccessDialogOpen, setRoomAccessDialogOpen] = useState(false);
   const [roomAccessLevel, setRoomAccessLevel] = useState<'OWNER' | 'ANYONE_WITH_LINK'>('ANYONE_WITH_LINK');
+  const [roomIsOwner, setRoomIsOwner] = useState(true); // Task rooms: creator is owner
+  const [roomAccessSaving, setRoomAccessSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const [chatOpen, setChatOpen] = useState(false);
@@ -161,30 +163,83 @@ export default function TaskDetailPage() {
 
   // Track task completion shared state via Yjs
   const taskCompletionMapRef = useRef<Y.Map<any> | null>(null);
+  const roomAccessMapRef = useRef<Y.Map<any> | null>(null);
 
   useEffect(() => {
     if (ydoc) {
       // Get or create shared task completion state
       taskCompletionMapRef.current = ydoc.getMap('taskCompletion');
+      
+      // Get or create room access control state
+      roomAccessMapRef.current = ydoc.getMap('roomAccess');
 
       // Listen for completion changes from other users
       const observer = (event: any) => {
         if (event.changes.keys) {
           event.changes.keys.forEach((change: any) => {
-            if (change.action === 'update') {
+            // Check for both 'add' (first completion) and 'update' (subsequent changes)
+            if (change.action === 'add' || change.action === 'update') {
               const completed = taskCompletionMapRef.current?.get('completed');
               const completedBy = taskCompletionMapRef.current?.get('completedBy');
               if (completed && completedBy !== userId) {
                 setCompleted(true);
-                success(`${completedBy} completed the task!`);
+                console.log('[TaskPage] Task completed by:', completedBy);
+                // Only show toast if we haven't already completed it ourselves
+                if (!completed) {
+                  success(`${completedBy} completed the task!`);
+                }
               }
             }
           });
         }
       };
 
-      taskCompletionMapRef.current.observeDeep(observer);
-      return () => taskCompletionMapRef.current?.unobserveDeep(observer);
+      // Check initial state on connect
+      const initialCompleted = taskCompletionMapRef.current?.get('completed');
+      const initialCompletedBy = taskCompletionMapRef.current?.get('completedBy');
+      if (initialCompleted && initialCompletedBy !== userId) {
+        setCompleted(true);
+      }
+
+      // Listen for room access changes
+      const accessObserver = (event: any) => {
+        if (event.changes.keys) {
+          event.changes.keys.forEach((change: any) => {
+            if (change.action === 'add' || change.action === 'update') {
+              const accessLevel = roomAccessMapRef.current?.get('accessLevel');
+              const ownerId = roomAccessMapRef.current?.get('ownerId');
+              if (accessLevel) {
+                setRoomAccessLevel(accessLevel);
+              }
+              if (ownerId) {
+                setRoomIsOwner(ownerId === userId);
+              }
+            }
+          });
+        }
+      };
+
+      // Initialize room access if not exists (creator becomes owner)
+      if (!roomAccessMapRef.current?.get('ownerId')) {
+        ydoc.transact(() => {
+          roomAccessMapRef.current?.set('ownerId', userId);
+          roomAccessMapRef.current?.set('accessLevel', 'ANYONE_WITH_LINK');
+        });
+        setRoomIsOwner(true);
+      } else {
+        const existingOwnerId = roomAccessMapRef.current?.get('ownerId');
+        const existingAccessLevel = roomAccessMapRef.current?.get('accessLevel');
+        setRoomIsOwner(existingOwnerId === userId);
+        if (existingAccessLevel) {
+          setRoomAccessLevel(existingAccessLevel);
+        }
+      }
+
+      roomAccessMapRef.current.observeDeep(accessObserver);
+      return () => {
+        taskCompletionMapRef.current?.unobserveDeep(observer);
+        roomAccessMapRef.current?.unobserveDeep(accessObserver);
+      };
     }
   }, [ydoc, userId, success]);
 
@@ -335,17 +390,30 @@ export default function TaskDetailPage() {
     }
   }, [roomId]);
 
-  const handleOpenRoomAccess = useCallback(async () => {
+  const handleOpenRoomAccess = useCallback(() => {
     setRoomAccessDialogOpen(true);
-    // Task rooms are always "Anyone with link" by default since they're ephemeral
-    setRoomAccessLevel('ANYONE_WITH_LINK');
   }, []);
 
   const handleSaveRoomAccess = useCallback(() => {
-    // For task rooms, access settings are not persisted to backend
-    // They're ephemeral sessions. Just close the dialog.
     setRoomAccessDialogOpen(false);
   }, []);
+
+  const handleUpdateRoomAccess = useCallback(async (newAccessLevel: 'OWNER' | 'ANYONE_WITH_LINK') => {
+    if (!roomAccessMapRef.current || !ydoc) return;
+    
+    setRoomAccessSaving(true);
+    try {
+      ydoc.transact(() => {
+        roomAccessMapRef.current?.set('accessLevel', newAccessLevel);
+      });
+      setRoomAccessLevel(newAccessLevel);
+      console.log('[TaskPage] Room access updated to:', newAccessLevel);
+    } catch (err) {
+      console.error('[TaskPage] Failed to update room access:', err);
+    } finally {
+      setRoomAccessSaving(false);
+    }
+  }, [ydoc]);
 
   const handleSubmit = useCallback(async () => {
     if (!userId || !task || !activeYText) return;
@@ -368,34 +436,45 @@ export default function TaskDetailPage() {
 
       console.log('[TaskPage] Submit result:', execResult);
 
-      const exitCode = execResult.execution?.exit_code;
-      const statusId = execResult.execution?.status?.id;
+      // Extract execution details safely
+      const execution = execResult.execution;
+      const exitCode = execution?.exit_code;
+      const statusId = execution?.status?.id;
+      const stdout = execution?.stdout || '';
+      const stderr = execution?.stderr || '';
+      const compileOutput = execution?.compile_output || '';
+
+      console.log('[TaskPage] Execution details:', { exitCode, statusId, stdout, stderr, compileOutput });
 
       // Check if tests passed (status 3 = Accepted, exit code 0)
-      if (execResult.success && exitCode === 0 && statusId === 3) {
-        // Mark as completed locally
+      const testsPassed = execResult.success && exitCode === 0 && statusId === 3;
+
+      if (testsPassed) {
+        // Mark as completed locally FIRST (before broadcasting)
         setCompleted(true);
-        
+
         // Broadcast completion to all room members via Yjs
+        // This ensures all users see the task as completed
         if (taskCompletionMapRef.current && ydoc) {
           ydoc.transact(() => {
             taskCompletionMapRef.current?.set('completed', true);
             taskCompletionMapRef.current?.set('completedBy', userName);
             taskCompletionMapRef.current?.set('completedAt', new Date().toISOString());
           });
+          console.log('[TaskPage] Broadcasted task completion to room');
         }
-        
+
         // Save to database
         const result = await completeTask(slug, 'javascript');
+        console.log('[TaskPage] Database completion result:', result);
+        
         if (result.success) {
           success('🎉 Task completed successfully!');
+        } else {
+          console.warn('[TaskPage] Database completion returned non-success:', result);
         }
       } else {
         // Show error if tests failed
-        const stdout = execResult.execution?.stdout || '';
-        const stderr = execResult.execution?.stderr || '';
-        const compileOutput = execResult.execution?.compile_output || '';
-        
         if (compileOutput) {
           showError('Compilation failed. Check console for details.');
         } else if (stderr) {
@@ -874,24 +953,55 @@ export default function TaskDetailPage() {
                 </p>
               </div>
 
-              {/* Access Level Info */}
+              {/* Access Level Selection */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Access Level</label>
-                <div className="p-3 border rounded-lg bg-primary/5 border-primary/20">
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 rounded-full border-2 border-primary bg-primary" />
-                    <div>
-                      <div className="text-sm font-medium">Anyone with link</div>
-                      <div className="text-xs text-muted-foreground">
-                        Any authenticated user can join this session
-                      </div>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Who can access this room?</label>
+                  {!roomIsOwner && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Only the room creator can change this.
+                    </span>
+                  )}
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={!roomIsOwner || roomAccessSaving}
+                    onClick={() => handleUpdateRoomAccess('OWNER')}
+                    className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                      roomAccessLevel === 'OWNER'
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border bg-background hover:bg-muted/60'
+                    } ${!roomIsOwner ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  >
+                    <div className="font-medium mb-1">Owner only</div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Only you can join this room.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!roomIsOwner || roomAccessSaving}
+                    onClick={() => handleUpdateRoomAccess('ANYONE_WITH_LINK')}
+                    className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                      roomAccessLevel === 'ANYONE_WITH_LINK'
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border bg-background hover:bg-muted/60'
+                    } ${!roomIsOwner ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  >
+                    <div className="font-medium mb-1">Anyone with link</div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Anyone with the room ID can join.
+                    </p>
+                  </button>
+                </div>
+
                 <div className="rounded-md bg-blue-500/10 border border-blue-500/20 p-3">
                   <p className="text-xs text-blue-500">
-                    <strong>Note:</strong> Task collaboration sessions are temporary and don't persist access settings. 
-                    Anyone with the room ID can join while the session is active.
+                    <strong>Note:</strong> Task collaboration sessions are temporary.
+                    Access settings are shared via Yjs but not persisted to the database.
                   </p>
                 </div>
               </div>
@@ -901,8 +1011,9 @@ export default function TaskDetailPage() {
           <DialogFooter>
             <Button
               onClick={handleSaveRoomAccess}
+              disabled={roomAccessSaving}
             >
-              Close
+              {roomAccessSaving ? 'Saving...' : 'Close'}
             </Button>
           </DialogFooter>
         </DialogContent>
