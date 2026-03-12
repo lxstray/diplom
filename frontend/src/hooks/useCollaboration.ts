@@ -12,6 +12,7 @@ const COLLAB_URL =
 export interface UseCollaborationOptions {
   roomId: string;
   userName?: string;
+  disabled?: boolean;
 }
 
 export interface UseCollaborationResult {
@@ -27,6 +28,7 @@ export interface UseCollaborationResult {
 export function useCollaboration({
   roomId,
   userName = 'Anonymous',
+  disabled = false,
 }: UseCollaborationOptions): UseCollaborationResult {
   const ydocRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<HocuspocusProvider | null>(null);
@@ -41,8 +43,8 @@ export function useCollaboration({
 
   // Setup/cleanup provider when roomId changes
   useEffect(() => {
-    if (!roomId) {
-      // Leaving room: reset state
+    if (!roomId || disabled) {
+      // Leaving room or disabled: reset state
       if (providerRef.current) {
         providerRef.current.destroy();
         providerRef.current = null;
@@ -161,7 +163,7 @@ export function useCollaboration({
       setConnected(false);
       setPeers([]);
     };
-  }, [roomId, userName]);
+  }, [roomId, userName, disabled]);
 
   return { ydoc, provider, yFiles, yFileTexts, connected, error, peers };
 }

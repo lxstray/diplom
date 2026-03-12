@@ -9,7 +9,7 @@ import { useCursorPresence } from '@/hooks/useCursorPresence';
 import { useCodeExecution } from '@/hooks/useCodeExecution';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   ResizableHandle,
@@ -95,6 +95,8 @@ export default function TaskDetailPage() {
   const [roomIsOwner, setRoomIsOwner] = useState(true); // Task rooms: creator is owner
   const [roomAccessSaving, setRoomAccessSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [roomAccessDenied, setRoomAccessDenied] = useState(false);
+  const [roomAccessLoaded, setRoomAccessLoaded] = useState(false);
 
   const [chatOpen, setChatOpen] = useState(false);
   const [videoPanelOpen, setVideoPanelOpen] = useState(false);
@@ -102,18 +104,29 @@ export default function TaskDetailPage() {
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
-  // Generate unique room ID for this task session (like /editor does)
+  // Generate unique room ID for this task session (persisted in localStorage)
   const [uniqueRoomId, setUniqueRoomId] = useState<string>('');
-  
+
   useEffect(() => {
     if (userId && slug) {
       // If room param is provided, join that existing room
       if (roomParam) {
         setUniqueRoomId(roomParam);
+        return;
+      }
+
+      // Check localStorage for existing room ID for this task
+      const storageKey = `task-room-${slug}`;
+      const storedRoomId = localStorage.getItem(storageKey);
+      
+      if (storedRoomId) {
+        setUniqueRoomId(storedRoomId);
       } else {
-        // Otherwise create a new unique room ID for this task session
+        // Create new unique room ID for this task session
         const sessionId = crypto.randomUUID().slice(0, 8);
-        setUniqueRoomId(`task-${slug}-${sessionId}`);
+        const newRoomId = `task-${slug}-${sessionId}`;
+        setUniqueRoomId(newRoomId);
+        localStorage.setItem(storageKey, newRoomId);
       }
     }
   }, [userId, slug, roomParam]);
@@ -154,8 +167,9 @@ export default function TaskDetailPage() {
   const roomId = useMemo(() => effectiveRoomId, [effectiveRoomId]);
   const { ydoc, provider, yFiles, yFileTexts, connected, error: collabError, peers } =
     useCollaboration({
-      roomId,
+      roomId: roomAccessLoaded ? roomId : '',
       userName,
+      disabled: roomAccessDenied,
     });
 
   const activeFileId = 'solution';
@@ -167,15 +181,21 @@ export default function TaskDetailPage() {
   // Track if we've already synced completion to database to avoid duplicate calls
   const completionSyncedRef = useRef(false);
 
-  // Load room access from API on mount
+  // Load room access from API BEFORE connecting to WebSocket
   useEffect(() => {
-    if (!ydoc || !roomId || !userId) return;
+    if (!roomId || !userId) {
+      setRoomAccessLoaded(true);
+      return;
+    }
 
     const loadRoomAccess = async () => {
       try {
         const { data } = await supabase.auth.getSession();
         const accessToken = data.session?.access_token;
-        if (!accessToken) return;
+        if (!accessToken) {
+          setRoomAccessLoaded(true);
+          return;
+        }
 
         const response = await fetch(`http://localhost:3001/api/task-rooms/${roomId}/access`, {
           headers: {
@@ -184,23 +204,31 @@ export default function TaskDetailPage() {
         });
 
         if (response.ok) {
-          const { session } = await response.json();
+          const { session, canAccess } = await response.json();
           if (session) {
             setRoomAccessLevel(session.accessLevel);
             setRoomIsOwner(session.ownerId === userId);
+            setRoomAccessDenied(!canAccess && session.ownerId !== userId);
+            console.log('[TaskPage] Loaded room access:', session, 'canAccess:', canAccess);
+          } else {
+            // Session doesn't exist yet - user will be owner when they connect
+            setRoomIsOwner(true);
+            setRoomAccessLevel('ANYONE_WITH_LINK');
+            setRoomAccessDenied(false);
+            console.log('[TaskPage] Room session not found, user will be owner on connect');
           }
-        } else if (response.status === 404) {
-          // Session doesn't exist yet, will be created on first WebSocket connection
-          setRoomIsOwner(true);
-          setRoomAccessLevel('ANYONE_WITH_LINK');
+        } else {
+          console.error('[TaskPage] Failed to load room access:', response.status);
         }
       } catch (err) {
         console.error('[TaskPage] Failed to load room access:', err);
+      } finally {
+        setRoomAccessLoaded(true);
       }
     };
 
     loadRoomAccess();
-  }, [roomId, userId, ydoc]);
+  }, [roomId, userId]);
 
   useEffect(() => {
     if (ydoc) {
@@ -736,6 +764,47 @@ export default function TaskDetailPage() {
     return null;
   }
 
+  // Show loading while checking room access
+  if (!roomAccessLoaded) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Checking room access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied screen
+  if (roomAccessDenied) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Card className="max-w-md w-full mx-4">
+          <CardHeader className="text-center">
+            <ShieldCheck className="h-12 w-12 mx-auto mb-4 text-destructive" />
+            <CardTitle className="text-2xl">Access Denied</CardTitle>
+            <CardDescription>
+              This room is owner-only. Only the room creator can join.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="text-sm text-muted-foreground text-center">
+              <p>Room ID: <code className="bg-muted px-2 py-1 rounded text-xs">{roomId}</code></p>
+              <p className="mt-2">Contact the room owner to request access.</p>
+            </div>
+            <Link href="/tasks">
+              <Button className="w-full">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Tasks
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
@@ -1057,8 +1126,8 @@ export default function TaskDetailPage() {
 
                 <div className="rounded-md bg-blue-500/10 border border-blue-500/20 p-3">
                   <p className="text-xs text-blue-500">
-                    <strong>Note:</strong> Task collaboration sessions are temporary.
-                    Access settings are shared via Yjs but not persisted to the database.
+                    <strong>Note:</strong> Access settings are persisted to the database.
+                    The room ID is saved in your browser for this task.
                   </p>
                 </div>
               </div>

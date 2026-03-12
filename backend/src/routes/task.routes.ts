@@ -190,22 +190,27 @@ export async function taskRoutes(fastify: FastifyInstance) {
         const { roomId } = request.params as { roomId: string };
         const userId = request.authUser!.id;
 
-        const { canAccess, session } = await taskRoomSessionService.canAccessTaskRoom(
-          roomId,
-          userId
-        );
+        // Get session (don't check access - just return info)
+        const session = await taskRoomSessionService.getTaskRoomSession(roomId);
 
-        if (!canAccess) {
-          reply.code(403).send({ error: 'Access denied' });
-          return;
+        if (!session) {
+          // No session yet - return null, client will create on connect
+          return {
+            session: null,
+            canAccess: true, // Will be created on first connect
+          };
         }
 
+        // Check if user can access (for client to know if they can connect)
+        const canAccess = session.ownerId === userId || session.accessLevel === 'ANYONE_WITH_LINK';
+
         return {
-          session: session ? {
+          session: {
             roomId: session.roomId,
             ownerId: session.ownerId,
             accessLevel: session.accessLevel,
-          } : null,
+          },
+          canAccess,
         };
       } catch (error) {
         fastify.log.error({ error: 'Failed to get task room access' }, (error as Error).message);
@@ -228,14 +233,23 @@ export async function taskRoutes(fastify: FastifyInstance) {
           accessLevel: z.enum(['OWNER', 'ANYONE_WITH_LINK']),
         }).parse(request.body);
 
-        // Check if user is the owner
-        const session = await taskRoomSessionService.getTaskRoomSession(roomId);
-        
+        // Get or create session (create if doesn't exist - first user becomes owner)
+        let session = await taskRoomSessionService.getTaskRoomSession(roomId);
+
         if (!session) {
-          reply.code(404).send({ error: 'Task room session not found' });
-          return;
+          // Extract task slug from room ID: task-{slug}-{sessionId}
+          const parts = roomId.split('-');
+          const taskSlug = parts.slice(1, parts.length - 1).join('-');
+          
+          // Create session with current user as owner
+          session = await taskRoomSessionService.createOrGetTaskRoomSession(
+            roomId,
+            taskSlug,
+            userId
+          );
         }
 
+        // Check if user is the owner
         if (session.ownerId !== userId) {
           reply.code(403).send({ error: 'Only the room owner can change access' });
           return;

@@ -93,8 +93,8 @@ const collabServer = new Server({
           console.warn(
             `[hocuspocus] Access denied to task room. Room: ${roomId}, user: ${userId}, accessLevel: ${session?.accessLevel}, owner: ${session?.ownerId}`,
           );
-          // Reject authentication by returning false - this properly closes the WebSocket
-          return false;
+          // Throw error to properly reject authentication in Hocuspocus
+          throw new Error('Access denied: You do not have permission to join this task room');
         }
 
         // Create session if it doesn't exist (first user to join becomes owner)
@@ -111,27 +111,16 @@ const collabServer = new Server({
         );
       } else {
         // Regular rooms require access control check
-        try {
-          const { canAccess } = await roomService.canAccessRoom(
-            roomId,
-            userId,
-          );
+        const { canAccess } = await roomService.canAccessRoom(
+          roomId,
+          userId,
+        );
 
-          if (!canAccess) {
-            console.warn(
-              `[hocuspocus] Access denied. Room: ${roomId}, user: ${userId}`,
-            );
-            throw new Error('Access denied');
-          }
-        } catch (err) {
-          if ((err as Error).message === 'Access denied') {
-            throw err;
-          }
+        if (!canAccess) {
           console.warn(
-            `[hocuspocus] Error while checking room access, closing. Room: ${roomId}, user: ${userId}`,
-            err
+            `[hocuspocus] Access denied. Room: ${roomId}, user: ${userId}`,
           );
-          throw new Error('Access check failed');
+          throw new Error('Access denied: You do not have permission to join this room');
         }
       }
 
@@ -139,8 +128,9 @@ const collabServer = new Server({
         `Client authenticated and authorized. Room: ${roomId}, user: ${userId}`,
       );
     } catch (err) {
-      console.warn('[hocuspocus] Error during authentication, closing connection.');
+      console.warn('[hocuspocus] Authentication failed:', (err as Error).message);
       anyData.connection?.close?.();
+      throw err; // Re-throw to properly signal authentication failure
     }
   },
   async onDisconnect(data) {
