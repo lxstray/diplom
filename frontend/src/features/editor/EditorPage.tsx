@@ -131,6 +131,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
 
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [activeYText, setActiveYText] = useState<Y.Text | null>(null);
+  const [yTextSynced, setYTextSynced] = useState(false);
 
   // Update language when active file changes
   useEffect(() => {
@@ -149,25 +150,42 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
     }
   }, [yFiles, activeFileId]);
 
+  // Reset Y.Text sync state when ydoc changes (leaving room)
+  useEffect(() => {
+    return () => {
+      setYTextSynced(false);
+      setActiveYText(null);
+    };
+  }, [ydoc]);
+
   // Set activeYText when connected and activeFileId changes
   // This waits for Yjs sync before exposing the Y.Text to the editor
   useEffect(() => {
     if (!ydoc || !yFileTexts || !activeFileId || !connected) return;
 
-    let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
+    // Wait a short time for Yjs to sync the document structure from the server
+    // This is critical: if we create a new Y.Text before sync completes,
+    // we'll overwrite the existing content from other users
+    const syncTimeout = setTimeout(() => {
+      let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
 
-    if (!text) {
-      // Create new Y.Text for new file
-      const newText = new Y.Text('');
-      ydoc.transact(() => {
-        yFileTexts.set(activeFileId, newText);
-      });
-      text = newText;
-      console.log('[EditorPage] Created new Y.Text for file:', activeFileId);
-    }
+      if (!text) {
+        // Create new Y.Text for new file
+        const newText = new Y.Text('');
+        ydoc.transact(() => {
+          yFileTexts.set(activeFileId, newText);
+        });
+        text = newText;
+        console.log('[EditorPage] Created new Y.Text for file:', activeFileId);
+      } else {
+        console.log('[EditorPage] Found existing Y.Text for file:', activeFileId, 'content length:', text.length);
+      }
 
-    setActiveYText(text);
-    console.log('[EditorPage] activeYText set for file:', activeFileId, 'content length:', text.length);
+      setActiveYText(text);
+      setYTextSynced(true);
+    }, 300); // Wait 300ms for Yjs document sync
+
+    return () => clearTimeout(syncTimeout);
   }, [ydoc, yFileTexts, activeFileId, connected]);
 
   // Initialize Y.Text for files that don't have content yet

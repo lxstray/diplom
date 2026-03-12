@@ -174,6 +174,7 @@ export default function TaskDetailPage() {
 
   const activeFileId = 'solution';
   const [activeYText, setActiveYText] = useState<Y.Text | null>(null);
+  const [yTextSynced, setYTextSynced] = useState(false);
 
   // Track task completion shared state via Yjs
   const taskCompletionMapRef = useRef<Y.Map<any> | null>(null);
@@ -333,25 +334,42 @@ export default function TaskDetailPage() {
     loadTask();
   }, [slug, userId, getTaskBySlug, router, recordAttempt]);
 
+  // Reset Y.Text sync state when ydoc changes (leaving room)
+  useEffect(() => {
+    return () => {
+      setYTextSynced(false);
+      setActiveYText(null);
+    };
+  }, [ydoc]);
+
   // Ensure the solution file exists in the Yjs doc and set activeYText
   // This runs when connected to sync with other users first
   useEffect(() => {
     if (!ydoc || !yFileTexts || !task || !connected) return;
 
-    // Check if Y.Text already exists for this file
-    let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
+    // Wait a short time for Yjs to sync the document structure from the server
+    // This is critical: if we create a new Y.Text before sync completes,
+    // we'll overwrite the existing content from other users
+    const syncTimeout = setTimeout(() => {
+      let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
 
-    if (!text) {
-      // Create new Y.Text - will be initialized with starter code in next effect
-      const newText = new Y.Text();
-      ydoc.transact(() => {
-        yFileTexts.set(activeFileId, newText);
-      });
-      text = newText;
-    }
+      if (!text) {
+        // Create new Y.Text - will be initialized with starter code in next effect
+        const newText = new Y.Text();
+        ydoc.transact(() => {
+          yFileTexts.set(activeFileId, newText);
+        });
+        text = newText;
+        console.log('[TaskPage] Created new Y.Text for file:', activeFileId);
+      } else {
+        console.log('[TaskPage] Found existing Y.Text for file:', activeFileId, 'content length:', text.length);
+      }
 
-    setActiveYText(text);
-    console.log('[TaskPage] activeYText set, content length:', text.length);
+      setActiveYText(text);
+      setYTextSynced(true);
+    }, 300); // Wait 300ms for Yjs document sync
+
+    return () => clearTimeout(syncTimeout);
   }, [ydoc, yFileTexts, task, connected, activeFileId]);
 
   // Ensure the solution file metadata exists in the Yjs doc
@@ -383,7 +401,7 @@ export default function TaskDetailPage() {
   // This ensures all users see the same initial code and sync properly.
   // Only the first user (with empty document) will initialize the content.
   useEffect(() => {
-    if (!ydoc || !yFileTexts || !task || !connected || !activeYText) return;
+    if (!ydoc || !yFileTexts || !task || !connected || !activeYText || !yTextSynced) return;
 
     // Wait a bit for Yjs to sync existing content from other users
     const timeoutId = setTimeout(() => {
@@ -398,10 +416,10 @@ export default function TaskDetailPage() {
         activeYText.insert(0, task.starterCode || '');
       });
       console.log('[TaskPage] Initialized Y.Text with starter code');
-    }, 500); // Wait 500ms for initial Yjs sync from other users
+    }, 200); // Additional wait after Y.Text is ready
 
     return () => clearTimeout(timeoutId);
-  }, [ydoc, yFileTexts, task, connected, activeYText]);
+  }, [ydoc, yFileTexts, task, connected, activeYText, yTextSynced]);
 
   const handleRunCode = useCallback(async () => {
     if (!task || !activeYText) return;
