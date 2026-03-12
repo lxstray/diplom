@@ -130,27 +130,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
   } = useCodeExecution();
 
   const [consoleOpen, setConsoleOpen] = useState(false);
-
-  // Get or create a Y.Text for the active file so each file
-  // has its own collaborative content.
-  const activeYText = useMemo(() => {
-    if (!ydoc || !yFileTexts || !activeFileId) {
-      return null;
-    }
-
-    let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
-
-    if (!text) {
-      // Create new Y.Text and initialize it with empty content
-      const newText = new Y.Text('');
-      ydoc.transact(() => {
-        yFileTexts.set(activeFileId, newText);
-      });
-      text = newText;
-    }
-
-    return text;
-  }, [ydoc, yFileTexts, activeFileId]);
+  const [activeYText, setActiveYText] = useState<Y.Text | null>(null);
 
   // Update language when active file changes
   useEffect(() => {
@@ -168,6 +148,27 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
       }
     }
   }, [yFiles, activeFileId]);
+
+  // Set activeYText when connected and activeFileId changes
+  // This waits for Yjs sync before exposing the Y.Text to the editor
+  useEffect(() => {
+    if (!ydoc || !yFileTexts || !activeFileId || !connected) return;
+
+    let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
+
+    if (!text) {
+      // Create new Y.Text for new file
+      const newText = new Y.Text('');
+      ydoc.transact(() => {
+        yFileTexts.set(activeFileId, newText);
+      });
+      text = newText;
+      console.log('[EditorPage] Created new Y.Text for file:', activeFileId);
+    }
+
+    setActiveYText(text);
+    console.log('[EditorPage] activeYText set for file:', activeFileId, 'content length:', text.length);
+  }, [ydoc, yFileTexts, activeFileId, connected]);
 
   // Initialize Y.Text for files that don't have content yet
   // This is critical for sync - ensures all users see the same content

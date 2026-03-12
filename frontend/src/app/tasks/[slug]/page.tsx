@@ -157,15 +157,16 @@ export default function TaskDetailPage() {
     });
 
   const activeFileId = 'solution';
+  const [activeYText, setActiveYText] = useState<Y.Text | null>(null);
 
   // Track task completion shared state via Yjs
   const taskCompletionMapRef = useRef<Y.Map<any> | null>(null);
-  
+
   useEffect(() => {
     if (ydoc) {
       // Get or create shared task completion state
       taskCompletionMapRef.current = ydoc.getMap('taskCompletion');
-      
+
       // Listen for completion changes from other users
       const observer = (event: any) => {
         if (event.changes.keys) {
@@ -181,25 +182,11 @@ export default function TaskDetailPage() {
           });
         }
       };
-      
+
       taskCompletionMapRef.current.observeDeep(observer);
       return () => taskCompletionMapRef.current?.unobserveDeep(observer);
     }
   }, [ydoc, userId, success]);
-
-  const activeYText = useMemo(() => {
-    if (!ydoc || !yFileTexts) return null;
-
-    let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
-    if (!text) {
-      const newText = new Y.Text();
-      ydoc.transact(() => {
-        yFileTexts.set(activeFileId, newText);
-      });
-      text = newText;
-    }
-    return text;
-  }, [ydoc, yFileTexts]);
 
   const { remoteCursors, updateCursorPosition } = useCursorPresence({
     provider,
@@ -241,7 +228,28 @@ export default function TaskDetailPage() {
     loadTask();
   }, [slug, userId, getTaskBySlug, router, recordAttempt]);
 
-  // Ensure the solution file exists in the Yjs doc (no file tree UI, but the doc schema is reused).
+  // Ensure the solution file exists in the Yjs doc and set activeYText
+  // This runs when connected to sync with other users first
+  useEffect(() => {
+    if (!ydoc || !yFileTexts || !task || !connected) return;
+
+    // Check if Y.Text already exists for this file
+    let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
+
+    if (!text) {
+      // Create new Y.Text - will be initialized with starter code in next effect
+      const newText = new Y.Text();
+      ydoc.transact(() => {
+        yFileTexts.set(activeFileId, newText);
+      });
+      text = newText;
+    }
+
+    setActiveYText(text);
+    console.log('[TaskPage] activeYText set, content length:', text.length);
+  }, [ydoc, yFileTexts, task, connected, activeFileId]);
+
+  // Ensure the solution file metadata exists in the Yjs doc
   useEffect(() => {
     if (!ydoc || !yFiles || !task) return;
 
@@ -267,34 +275,28 @@ export default function TaskDetailPage() {
   }, [output]);
 
   // Initialize the shared editor text with starter code if it is empty.
-  // This ensures all users see the same initial code and sync properly
+  // This ensures all users see the same initial code and sync properly.
+  // Only the first user (with empty document) will initialize the content.
   useEffect(() => {
-    if (!ydoc || !yFileTexts || !task) return;
-    
-    // Wait for Yjs to sync with other users first
+    if (!ydoc || !yFileTexts || !task || !connected || !activeYText) return;
+
+    // Wait a bit for Yjs to sync existing content from other users
     const timeoutId = setTimeout(() => {
-      let text = yFileTexts.get(activeFileId) as Y.Text | undefined;
-      
-      if (!text) {
-        // Create new Y.Text with starter code
-        const newText = new Y.Text(task.starterCode || '');
-        ydoc.transact(() => {
-          yFileTexts.set(activeFileId, newText);
-        });
-        console.log('[TaskPage] Created new Y.Text with starter code');
-      } else if (text.length === 0 && task.starterCode) {
-        // If text exists but is empty (first user), initialize with starter code
-        ydoc.transact(() => {
-          text.insert(0, task.starterCode);
-        });
-        console.log('[TaskPage] Initialized empty Y.Text with starter code');
-      } else {
-        console.log('[TaskPage] Y.Text already has content from other users');
+      // Check if content already exists (from other users)
+      if (activeYText.length > 0) {
+        console.log('[TaskPage] Content already exists from other users, skipping initialization');
+        return;
       }
-    }, 300); // Wait 300ms for initial Yjs sync
-    
+
+      // Initialize with starter code only if still empty after sync period
+      ydoc.transact(() => {
+        activeYText.insert(0, task.starterCode || '');
+      });
+      console.log('[TaskPage] Initialized Y.Text with starter code');
+    }, 500); // Wait 500ms for initial Yjs sync from other users
+
     return () => clearTimeout(timeoutId);
-  }, [ydoc, yFileTexts, task, activeFileId]);
+  }, [ydoc, yFileTexts, task, connected, activeYText]);
 
   const handleRunCode = useCallback(async () => {
     if (!task || !activeYText) return;
