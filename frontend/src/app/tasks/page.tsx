@@ -7,6 +7,7 @@ import { TaskCard } from '@/components/TaskCard';
 import { TaskFilters } from '@/components/TaskFilters';
 import { StatsPanel } from '@/components/StatsPanel';
 import { ActivityCalendar } from '@/components/ActivityCalendar';
+import { RoomHistoryPanel } from '@/components/RoomHistoryPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,7 @@ export default function TasksPage() {
   const [newProjectName, setNewProjectName] = useState('');
   const [joinRoomDialogOpen, setJoinRoomDialogOpen] = useState(false);
   const [joinRoomId, setJoinRoomId] = useState('');
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
 
   // Load user info
   useEffect(() => {
@@ -236,6 +238,25 @@ export default function TasksPage() {
     }
   };
 
+  const handleReconnect = useCallback((roomId: string) => {
+    // Check if it's a task room (format: task-{slug}-{id})
+    const isTaskRoom = roomId.startsWith('task-');
+
+    if (isTaskRoom) {
+      // For task rooms, extract the slug and redirect to task page with room param
+      const parts = roomId.split('-');
+      if (parts.length < 3) {
+        console.error('Invalid task room ID format');
+        return;
+      }
+      const slug = parts.slice(1, -1).join('-');
+      window.location.href = `/tasks/${slug}?room=${encodeURIComponent(roomId)}`;
+    } else {
+      // Regular project room - redirect to editor
+      window.location.href = `/editor?room=${roomId}`;
+    }
+  }, []);
+
   const filteredTasks = tasks.filter((task) => {
     // Difficulty filter
     if (difficulty !== 'all') {
@@ -323,6 +344,15 @@ export default function TasksPage() {
                 >
                   Join Room
                 </Button>
+                <Button
+                  onClick={() => setHistoryPanelOpen(!historyPanelOpen)}
+                  size="sm"
+                  variant={historyPanelOpen ? 'default' : 'outline'}
+                  className="h-8 px-2 text-xs"
+                >
+                  <FolderOpen className="h-3 w-3 mr-1" />
+                  History
+                </Button>
               </div>
 
               {userName && (
@@ -339,19 +369,21 @@ export default function TasksPage() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">
-            Welcome back{userName ? `, ${userName.split('@')[0]}` : ''}!
-          </h2>
-          <p className="text-muted-foreground">
-            Ready to solve some coding challenges today?
-          </p>
-        </div>
+      <main className="container mx-auto px-4 py-8 flex gap-6">
+        {/* Main area - tabs and content */}
+        <div className="flex-1">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold mb-2">
+              Welcome back{userName ? `, ${userName.split('@')[0]}` : ''}!
+            </h2>
+            <p className="text-muted-foreground">
+              Ready to solve some coding challenges today?
+            </p>
+          </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="mb-8">
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="mb-8">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="tasks" className="gap-2">
               <BookOpen className="h-4 w-4" />
@@ -487,6 +519,17 @@ export default function TasksPage() {
             )}
           </TabsContent>
         </Tabs>
+        </div>
+
+        {/* Room History Panel - Right Sidebar */}
+        {historyPanelOpen && (
+          <div className="w-80 flex-shrink-0">
+            <RoomHistoryPanel
+              onReconnect={handleReconnect}
+              userId={userId}
+            />
+          </div>
+        )}
       </main>
 
       {/* New Project Dialog */}

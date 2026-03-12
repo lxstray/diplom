@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useCollaboration } from '@/hooks/useCollaboration';
 import { useFileContent } from '@/hooks/useFileContent';
@@ -8,7 +9,6 @@ import { useCodeExecution } from '@/hooks/useCodeExecution';
 import { useChat } from '@/hooks/useChat';
 import { useCursorPresence } from '@/hooks/useCursorPresence';
 import { FileTree } from '@/components/file-tree/FileTree';
-import { RoomHistoryPanel } from '@/components/RoomHistoryPanel';
 import { ConsoleOutput } from '@/components/ConsoleOutput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,6 +61,7 @@ interface EditorPageProps {
 }
 
 export default function EditorPage({ initialRoomId }: EditorPageProps) {
+  const router = useRouter();
   const [roomId, setRoomId] = useState(initialRoomId || '');
   const [currentRoom, setCurrentRoom] = useState<string | null>(initialRoomId || null);
   const [currentProject, setCurrentProject] = useState<string | null>(null);
@@ -397,7 +398,8 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
     setCurrentProject(null);
     setRoomId('');
     setActiveFileId(null);
-    setSidebarOpen(true); // Reset sidebar to open when returning to main page
+    setSidebarOpen(true);
+    router.push('/tasks');
   };
 
   const handleReconnect = async (roomId: string) => {
@@ -839,20 +841,12 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - History & File Tree */}
-        {sidebarOpen && (
+        {/* Left Sidebar - File Tree only */}
+        {sidebarOpen && currentRoom && (
           <aside className="w-72 border-r bg-card flex-shrink-0 overflow-y-auto">
             <div className="p-4 space-y-4">
-              {/* Room History - Only visible when NOT in a room */}
-              {!currentRoom && (
-                <RoomHistoryPanel
-                  onReconnect={handleReconnect}
-                  userId={userId}
-                />
-              )}
-
               {/* File Tree - Only visible when in a room */}
-              {currentRoom && yFiles && (
+              {yFiles && (
                 <div className="space-y-2">
                   <div className="text-xs font-medium text-muted-foreground px-1">
                     Files
