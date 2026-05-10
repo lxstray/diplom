@@ -18,9 +18,9 @@ const getDifficultyColor = (difficulty: number) => {
 };
 
 const getDifficultyLabel = (difficulty: number) => {
-  if (difficulty <= 3) return 'Easy';
-  if (difficulty <= 6) return 'Medium';
-  return 'Hard';
+  if (difficulty <= 3) return 'Легко';
+  if (difficulty <= 6) return 'Средне';
+  return 'Сложно';
 };
 
 export function TaskCard({ task }: TaskCardProps) {
@@ -65,7 +65,7 @@ export function TaskCard({ task }: TaskCardProps) {
         </div>
         <Link href={`/tasks/${task.slug}`}>
           <Button className="w-full" variant="outline" size="sm">
-            {task.completed ? 'Review' : 'Start'}
+            {task.completed ? 'Просмотр' : 'Начать'}
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </Link>

@@ -19,7 +19,7 @@ export default function SignInPage() {
   const handleEmailAuth = async () => {
     setError(null);
     if (!email.trim() || !password) {
-      setError('Email and password are required.');
+      setError('Email и пароль обязательны.');
       return;
     }
 
@@ -83,12 +83,12 @@ export default function SignInPage() {
           </div>
           <CardTitle className="text-2xl flex items-center justify-center gap-2">
             <LogIn className="h-5 w-5" />
-            {mode === 'signin' ? 'Sign in to Diplom' : 'Create your Diplom account'}
+            {mode === 'signin' ? 'Вход в Diplom' : 'Создать аккаунт Diplom'}
           </CardTitle>
           <CardDescription>
             {mode === 'signin'
-              ? 'Use your email and password or continue with Google/GitHub.'
-              : 'Sign up with email and password or continue with a provider.'}
+              ? 'Используйте email и пароль или войдите через Google/GitHub.'
+              : 'Зарегистрируйтесь с помощью email и пароля или через провайдера.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -101,13 +101,13 @@ export default function SignInPage() {
           <div className="space-y-2">
             <Input
               type="email"
-              placeholder="Email"
+              placeholder="Электронная почта"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
             <Input
               type="password"
-              placeholder="Password"
+              placeholder="Пароль"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -120,12 +120,12 @@ export default function SignInPage() {
               void handleEmailAuth();
             }}
           >
-            {mode === 'signin' ? 'Sign in with Email' : 'Sign up with Email'}
+            {mode === 'signin' ? 'Войти с Email' : 'Зарегистрироваться с Email'}
           </Button>
 
           <div className="flex items-center gap-2 pt-2">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">or continue with</span>
+            <span className="text-xs text-muted-foreground">или продолжить с</span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
@@ -160,8 +160,8 @@ export default function SignInPage() {
             onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
           >
             {mode === 'signin'
-              ? "Don't have an account? Sign up"
-              : 'Already have an account? Sign in'}
+              ? "Нет аккаунта? Зарегистрируйтесь"
+              : 'Уже есть аккаунт? Войдите'}
           </button>
         </CardContent>
       </Card>

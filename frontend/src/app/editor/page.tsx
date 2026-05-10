@@ -25,7 +25,7 @@ export default function EditorRoutePage() {
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading editor...</p>
+          <p className="text-muted-foreground">Загрузка редактора...</p>
         </div>
       </div>
     );

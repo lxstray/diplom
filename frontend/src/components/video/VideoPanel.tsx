@@ -150,7 +150,7 @@ export function VideoPanel({
       >
         <div className="flex items-center gap-2">
           <Video className="h-4 w-4" />
-          <h3 className="font-semibold text-sm">Video Chat</h3>
+          <h3 className="font-semibold text-sm">Видеочат</h3>
         </div>
         <Button
           variant="ghost"

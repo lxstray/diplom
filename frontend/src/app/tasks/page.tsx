@@ -8,6 +8,7 @@ import { TaskFilters } from '@/components/TaskFilters';
 import { StatsPanel } from '@/components/StatsPanel';
 import { ActivityCalendar } from '@/components/ActivityCalendar';
 import { RoomHistoryPanel } from '@/components/RoomHistoryPanel';
+import { UserProfile } from '@/components/UserProfile';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -276,7 +277,7 @@ export default function TasksPage() {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
-          <div className="text-muted-foreground">Loading...</div>
+          <div className="text-muted-foreground">Загрузка...</div>
         </div>
       </div>
     );
@@ -289,20 +290,20 @@ export default function TasksPage() {
         <Card className="max-w-md w-full mx-4">
           <CardHeader className="text-center">
             <Code2 className="h-12 w-12 mx-auto mb-4 text-primary" />
-            <CardTitle className="text-2xl">Sign in required</CardTitle>
+            <CardTitle className="text-2xl">Требуется вход</CardTitle>
             <CardDescription>
-              Please sign in to access coding challenges and track your progress
+              Пожалуйста, войдите в систему для доступа к задачам и отслеживания прогресса
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <Link href="/signin">
               <Button className="w-full">
                 <LogIn className="h-4 w-4 mr-2" />
-                Go to Sign In Page
+                Перейти к входу
               </Button>
             </Link>
             <p className="text-sm text-center text-muted-foreground">
-              You can create an account or sign in with Google/GitHub
+              Вы можете создать аккаунт или войти через Google/GitHub
             </p>
           </CardContent>
         </Card>
@@ -321,7 +322,7 @@ export default function TasksPage() {
               <div>
                 <h1 className="text-2xl font-bold">Diplom</h1>
                 <p className="text-sm text-muted-foreground">
-                  Collaborative Coding Challenges
+                  Совместное решение задач
                 </p>
               </div>
             </div>
@@ -335,14 +336,14 @@ export default function TasksPage() {
                   variant="default"
                 >
                   <FolderOpen className="h-4 w-4 mr-2" />
-                  New Project
+                  Новый проект
                 </Button>
                 <Button
                   onClick={() => setJoinRoomDialogOpen(true)}
                   size="sm"
                   variant="outline"
                 >
-                  Join Room
+                  Присоединиться
                 </Button>
                 <Button
                   onClick={() => setHistoryPanelOpen(!historyPanelOpen)}
@@ -351,16 +352,17 @@ export default function TasksPage() {
                   className="h-8 px-2 text-xs"
                 >
                   <FolderOpen className="h-3 w-3 mr-1" />
-                  History
+                  История
                 </Button>
               </div>
 
               {userName && (
                 <div className="hidden sm:flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{userName}</span>
-                  <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                    <LogOut className="h-4 w-4" />
-                  </Button>
+                  <UserProfile 
+                    userName={userName}
+                    userEmail={userName}
+                    onSignOut={handleSignOut}
+                  />
                 </div>
               )}
             </div>
@@ -375,10 +377,10 @@ export default function TasksPage() {
           {/* Welcome Section */}
           <div className="mb-8">
             <h2 className="text-3xl font-bold mb-2">
-              Welcome back{userName ? `, ${userName.split('@')[0]}` : ''}!
+              С возвращением{userName ? `, ${userName.split('@')[0]}` : ''}!
             </h2>
             <p className="text-muted-foreground">
-              Ready to solve some coding challenges today?
+              Готовы решать задачи сегодня?
             </p>
           </div>
 
@@ -387,11 +389,11 @@ export default function TasksPage() {
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="tasks" className="gap-2">
               <BookOpen className="h-4 w-4" />
-              Tasks
+              Задачи
             </TabsTrigger>
             <TabsTrigger value="stats" className="gap-2">
               <BarChart3 className="h-4 w-4" />
-              Statistics
+              Статистика
             </TabsTrigger>
           </TabsList>
 
@@ -414,13 +416,13 @@ export default function TasksPage() {
 
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="text-muted-foreground">Loading tasks...</div>
+                <div className="text-muted-foreground">Загрузка задач...</div>
               </div>
             ) : error ? (
               <Card>
                 <CardContent className="py-8">
                   <div className="text-center text-destructive">
-                    <p className="font-medium">Failed to load tasks</p>
+                    <p className="font-medium">Не удалось загрузить задачи</p>
                     <p className="text-sm text-muted-foreground">{error}</p>
                   </div>
                 </CardContent>
@@ -430,8 +432,8 @@ export default function TasksPage() {
                 <CardContent className="py-8">
                   <div className="text-center text-muted-foreground">
                     <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p className="font-medium">No tasks found</p>
-                    <p className="text-sm">Try adjusting your filters</p>
+                    <p className="font-medium">Задачи не найдены</p>
+                    <p className="text-sm">Попробуйте изменить фильтры</p>
                   </div>
                 </CardContent>
               </Card>
@@ -452,7 +454,7 @@ export default function TasksPage() {
                 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Activity Overview</CardTitle>
+                    <CardTitle>Обзор активности</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ActivityCalendar activity={stats.recentActivity} />
@@ -462,19 +464,19 @@ export default function TasksPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Progress Summary</CardTitle>
+                      <CardTitle>Сводка прогресса</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Total Completed</span>
+                        <span className="text-muted-foreground">Всего выполнено</span>
                         <span className="font-semibold">{stats.totalCompleted}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Total Attempts</span>
+                        <span className="text-muted-foreground">Всего попыток</span>
                         <span className="font-semibold">{stats.totalAttempts}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Completion Rate</span>
+                        <span className="text-muted-foreground">Процент завершения</span>
                         <span className="font-semibold">
                           {stats.totalAttempts > 0 
                             ? Math.round((stats.totalCompleted / stats.totalAttempts) * 100) 
@@ -486,22 +488,22 @@ export default function TasksPage() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Difficulty Breakdown</CardTitle>
+                      <CardTitle>Распределение по сложности</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex items-center gap-3">
                         <div className="h-3 w-3 rounded-full bg-green-500" />
-                        <span className="text-muted-foreground flex-1">Easy</span>
+                        <span className="text-muted-foreground flex-1">Легкие</span>
                         <span className="font-semibold">{stats.difficultyStats.easy}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                        <span className="text-muted-foreground flex-1">Medium</span>
+                        <span className="text-muted-foreground flex-1">Средние</span>
                         <span className="font-semibold">{stats.difficultyStats.medium}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="h-3 w-3 rounded-full bg-red-500" />
-                        <span className="text-muted-foreground flex-1">Hard</span>
+                        <span className="text-muted-foreground flex-1">Сложные</span>
                         <span className="font-semibold">{stats.difficultyStats.hard}</span>
                       </div>
                     </CardContent>
@@ -512,7 +514,7 @@ export default function TasksPage() {
               <Card>
                 <CardContent className="py-8">
                   <div className="flex items-center justify-center text-muted-foreground">
-                    Loading statistics...
+                    Загрузка статистики...
                   </div>
                 </CardContent>
               </Card>
@@ -536,15 +538,15 @@ export default function TasksPage() {
       <Dialog open={newProjectDialogOpen} onOpenChange={setNewProjectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Project</DialogTitle>
+            <DialogTitle>Создать новый проект</DialogTitle>
             <DialogDescription>
-              Create a new project to start collaborative coding
+              Создайте новый проект для совместной работы
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Input
               type="text"
-              placeholder="Project name"
+              placeholder="Название проекта"
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
@@ -558,11 +560,11 @@ export default function TasksPage() {
                 setNewProjectName('');
               }}
             >
-              Cancel
+              Отмена
             </Button>
             <Button onClick={handleCreateProject}>
               <FolderOpen className="h-4 w-4 mr-2" />
-              Create Project
+              Создать проект
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -572,15 +574,15 @@ export default function TasksPage() {
       <Dialog open={joinRoomDialogOpen} onOpenChange={setJoinRoomDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Join Room</DialogTitle>
+            <DialogTitle>Присоединиться к комнате</DialogTitle>
             <DialogDescription>
-              Enter a room ID to join an existing collaborative session
+              Введите ID комнаты для присоединения к сессии
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Input
               type="text"
-              placeholder="Room ID"
+              placeholder="ID комнаты"
               value={joinRoomId}
               onChange={(e) => setJoinRoomId(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
@@ -594,10 +596,10 @@ export default function TasksPage() {
                 setJoinRoomId('');
               }}
             >
-              Cancel
+              Отмена
             </Button>
             <Button onClick={handleJoinRoom}>
-              Join Room
+              Присоединиться
             </Button>
           </DialogFooter>
         </DialogContent>

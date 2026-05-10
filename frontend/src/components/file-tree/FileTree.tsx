@@ -14,6 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { File, FolderPlus, Trash2, Edit2, Code2, Folder, FilePlus } from 'lucide-react';
 import type { FileMetadata } from '@/types/files';
+import { FileIcon } from '@/components/FileIcon';
 
 interface FileTreeProps {
   yFiles: Y.Map<FileMetadata>;
@@ -235,19 +236,6 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
     setEditingName('');
   }, [yFiles, editingFileId, editingName]);
 
-  const getLanguageIcon = (language: string) => {
-    const colors: Record<string, string> = {
-      javascript: 'text-yellow-400',
-      typescript: 'text-blue-400',
-      python: 'text-green-400',
-      java: 'text-red-400',
-      cpp: 'text-purple-400',
-      go: 'text-cyan-400',
-      rust: 'text-orange-400',
-    };
-    return colors[language] || 'text-gray-400';
-  };
-
   const toggleFolder = useCallback((path: string) => {
     setExpandedFolders((prev) => ({
       ...prev,
@@ -275,7 +263,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
             });
           }}
         >
-          <File className={`h-4 w-4 ${getLanguageIcon(node.language)}`} />
+          <FileIcon fileName={node.name} className="h-4 w-4" />
           {editingFileId === node.id ? (
             <Input
               value={editingName}
@@ -373,14 +361,14 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
     >
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b">
-        <span className="text-sm font-semibold">Files</span>
+        <span className="text-sm font-semibold">Файлы</span>
         <div className="flex items-center gap-1">
           <Button
             size="sm"
             variant="ghost"
             className="h-8 w-8 p-0"
             onClick={() => setNewFolderDialogOpen(true)}
-            title="New Folder"
+            title="Новая папка"
           >
             <FolderPlus className="h-4 w-4" />
           </Button>
@@ -389,7 +377,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
             variant="ghost"
             className="h-8 w-8 p-0"
             onClick={() => setNewFileDialogOpen(true)}
-            title="New File"
+            title="Новый файл"
           >
             <FilePlus className="h-4 w-4" />
           </Button>
@@ -401,8 +389,8 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
         {files.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm">
             <Code2 className="h-8 w-8 mb-2 opacity-50" />
-            <span>No files yet</span>
-            <span className="text-xs">Create a file to get started</span>
+            <span>Пока нет файлов</span>
+            <span className="text-xs">Создайте файл, чтобы начать</span>
           </div>
         ) : (
           <div className="space-y-1">{renderTree(tree)}</div>
@@ -413,12 +401,12 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
       <Dialog open={newFileDialogOpen} onOpenChange={setNewFileDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New File</DialogTitle>
+            <DialogTitle>Создать новый файл</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">File Name</label>
+              <label className="text-sm font-medium">Имя файла</label>
               <Input
                 placeholder="folder/example.ts"
                 value={newFileName}
@@ -430,7 +418,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Language</label>
+              <label className="text-sm font-medium">Язык</label>
               <select
                 value={newFileLanguage}
                 onChange={(e) => setNewFileLanguage(e.target.value)}
@@ -452,9 +440,9 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
               variant="outline"
               onClick={() => setNewFileDialogOpen(false)}
             >
-              Cancel
+              Отмена
             </Button>
-            <Button onClick={handleCreateFile}>Create File</Button>
+            <Button onClick={handleCreateFile}>Создать файл</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -462,12 +450,12 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
       <Dialog open={newFolderDialogOpen} onOpenChange={setNewFolderDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Folder</DialogTitle>
+            <DialogTitle>Создать новую папку</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Folder Path</label>
+              <label className="text-sm font-medium">Путь папки</label>
               <Input
                 placeholder="src/components"
                 value={newFolderName}
@@ -484,9 +472,9 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
               variant="outline"
               onClick={() => setNewFolderDialogOpen(false)}
             >
-              Cancel
+              Отмена
             </Button>
-            <Button onClick={handleCreateFolder}>Create Folder</Button>
+            <Button onClick={handleCreateFolder}>Создать папку</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -523,7 +511,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
                     setNewFileDialogOpen(true);
                   }}
                 >
-                  New File
+                  Новый файл
                 </button>
                 <button
                   className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted"
@@ -533,7 +521,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
                     setNewFolderDialogOpen(true);
                   }}
                 >
-                  New Folder
+                  Новая папка
                 </button>
                 <div className="h-px bg-border my-1" />
               </>
@@ -553,7 +541,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
                       }
                     }}
                   >
-                    Rename
+                    Переименовать
                   </button>
                   <button
                     className="w-full px-3 py-1.5 text-left text-sm text-destructive hover:bg-muted"
@@ -562,7 +550,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
                       handleDeleteFile(node.id);
                     }}
                   >
-                    Delete
+                    Удалить
                   </button>
                 </div>
               );
@@ -578,7 +566,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
                     setContextMenu(null);
                     const currentFolder =
                       node.path === '/' ? '' : node.path.replace(/^\/+/, '');
-                    const newName = window.prompt('Rename folder', currentFolder);
+                    const newName = window.prompt('Переименовать папку', currentFolder);
                     if (!newName || newName === currentFolder) return;
 
                     const normalizedOld = currentFolder;
@@ -614,7 +602,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
                     });
                   }}
                 >
-                  Rename
+                  Переименовать
                 </button>
                 <button
                   className="w-full px-3 py-1.5 text-left text-sm text-destructive hover:bg-muted"
@@ -626,7 +614,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
 
                     if (
                       !window.confirm(
-                        `Delete folder "${currentFolder}" and all its contents?`,
+                        `Удалить папку "${currentFolder}" и всё её содержимое?`,
                       )
                     ) {
                       return;
@@ -645,7 +633,7 @@ export function FileTree({ yFiles, activeFileId, onFileSelect }: FileTreeProps) 
                     });
                   }}
                 >
-                  Delete
+                  Удалить
                 </button>
               </div>
             );

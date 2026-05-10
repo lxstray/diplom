@@ -52,6 +52,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast, ToastContainer } from '@/components/Toast';
+import { UserProfile } from '@/components/UserProfile';
 
 // Code block renderer for markdown
 const CodeBlock = ({ language, children }: { language?: string; children: string }) => {
@@ -643,9 +644,9 @@ export default function TaskDetailPage() {
   };
 
   const getDifficultyLabel = (difficulty: number) => {
-    if (difficulty <= 3) return 'Easy';
-    if (difficulty <= 6) return 'Medium';
-    return 'Hard';
+    if (difficulty <= 3) return 'Легко';
+    if (difficulty <= 6) return 'Средне';
+    return 'Сложно';
   };
 
   if (authLoading) {
@@ -653,7 +654,7 @@ export default function TaskDetailPage() {
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">Загрузка...</p>
         </div>
       </div>
     );
@@ -667,25 +668,25 @@ export default function TaskDetailPage() {
             <div className="text-center space-y-4">
               <Code2 className="h-12 w-12 mx-auto text-primary" />
               <div>
-                <p className="font-medium">Sign in required</p>
+                <p className="font-medium">Требуется вход</p>
                 <p className="text-sm text-muted-foreground">
-                  Please sign in to open and solve this task.
+                  Войдите, чтобы открыть и решать эту задачу.
                 </p>
               </div>
 
               <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="w-full">Sign in / Register</Button>
+                  <Button className="w-full">Войти / Регистрация</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>
-                      {authMode === 'signin' ? 'Welcome back' : 'Create account'}
+                      {authMode === 'signin' ? 'С возвращением' : 'Создать аккаунт'}
                     </DialogTitle>
                     <DialogDescription>
                       {authMode === 'signin'
-                        ? 'Sign in with your email and password or continue with a provider.'
-                        : 'Sign up with your email and password or continue with a provider.'}
+                        ? 'Войдите с помощью email и пароля или через провайдера.'
+                        : 'Зарегистрируйтесь с помощью email и пароля или через провайдера.'}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -695,13 +696,13 @@ export default function TaskDetailPage() {
                     )}
                     <Input
                       type="email"
-                      placeholder="Email"
+                      placeholder="Электронная почта"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
                     <Input
                       type="password"
-                      placeholder="Password"
+                      placeholder="Пароль"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -716,8 +717,8 @@ export default function TaskDetailPage() {
                       }
                     >
                       {authMode === 'signin'
-                        ? "Don't have an account? Sign up"
-                        : 'Already have an account? Sign in'}
+                        ? "Нет аккаунта? Зарегистрируйтесь"
+                        : 'Уже есть аккаунт? Войдите'}
                     </button>
 
                     <div className="grid grid-cols-2 gap-2 pt-2">
@@ -749,7 +750,7 @@ export default function TaskDetailPage() {
                         }
                       }}
                     >
-                      {authMode === 'signin' ? 'Sign in' : 'Sign up'}
+                      {authMode === 'signin' ? 'Войти' : 'Зарегистрироваться'}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -757,7 +758,7 @@ export default function TaskDetailPage() {
 
               <Link href="/tasks">
                 <Button variant="outline" className="w-full">
-                  Back to tasks
+                  Назад к задачам
                 </Button>
               </Link>
             </div>
@@ -772,7 +773,7 @@ export default function TaskDetailPage() {
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading task...</p>
+          <p className="text-muted-foreground">Загрузка задачи...</p>
         </div>
       </div>
     );
@@ -788,7 +789,7 @@ export default function TaskDetailPage() {
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Checking room access...</p>
+          <p className="text-muted-foreground">Проверка доступа к комнате...</p>
         </div>
       </div>
     );
@@ -801,20 +802,20 @@ export default function TaskDetailPage() {
         <Card className="max-w-md w-full mx-4">
           <CardHeader className="text-center">
             <ShieldCheck className="h-12 w-12 mx-auto mb-4 text-destructive" />
-            <CardTitle className="text-2xl">Access Denied</CardTitle>
+            <CardTitle className="text-2xl">Доступ запрещен</CardTitle>
             <CardDescription>
-              This room is owner-only. Only the room creator can join.
+              Эта комната доступна только владельцу. Присоединиться может только создатель комнаты.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="text-sm text-muted-foreground text-center">
-              <p>Room ID: <code className="bg-muted px-2 py-1 rounded text-xs">{roomId}</code></p>
-              <p className="mt-2">Contact the room owner to request access.</p>
+              <p>ID комнаты: <code className="bg-muted px-2 py-1 rounded text-xs">{roomId}</code></p>
+              <p className="mt-2">Свяжитесь с владельцем комнаты, чтобы запросить доступ.</p>
             </div>
             <Link href="/tasks">
               <Button className="w-full">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Tasks
+                Назад к задачам
               </Button>
             </Link>
           </CardContent>
@@ -831,7 +832,7 @@ export default function TaskDetailPage() {
           <Link href="/tasks">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              Назад
             </Button>
           </Link>
           <div>
@@ -841,12 +842,12 @@ export default function TaskDetailPage() {
                 {getDifficultyLabel(task.difficulty)}
               </span>
               <Badge variant={connected ? 'default' : 'secondary'} className="text-xs">
-                {connected ? 'Connected' : collabError ? 'Disconnected' : 'Connecting'}
+                {connected ? 'Подключено' : collabError ? 'Отключено' : 'Подключение'}
               </Badge>
               {completed && (
                 <Badge variant="default" className="bg-green-500">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Completed
+                  Завершено
                 </Badge>
               )}
             </div>
@@ -866,19 +867,19 @@ export default function TaskDetailPage() {
         <div className="flex items-center gap-2">
           {/* Room ID Display */}
           <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md">
-            <span className="text-xs text-muted-foreground">Room:</span>
+            <span className="text-xs text-muted-foreground">Комната:</span>
             <span className="text-xs font-mono font-medium">{roomId.slice(5, 13)}...</span>
             <Button
               variant="ghost"
               size="icon"
               className="h-5 w-5 hover:bg-background"
               onClick={copyRoomId}
-              title="Copy room ID"
+              title="Копировать ID комнаты"
             >
               <Copy className="h-3 w-3" />
             </Button>
             {copied && (
-              <span className="text-xs text-green-500">Copied!</span>
+              <span className="text-xs text-green-500">Скопировано!</span>
             )}
           </div>
 
@@ -890,7 +891,7 @@ export default function TaskDetailPage() {
             className="h-8 px-2 text-xs"
           >
             <ShieldCheck className="h-3 w-3 mr-1" />
-            Access
+            Доступ
           </Button>
 
           <CollaboratorsPanel
@@ -905,7 +906,7 @@ export default function TaskDetailPage() {
             onClick={() => setChatOpen(!chatOpen)}
           >
             <MessageSquare className="h-4 w-4 mr-2" />
-            Chat
+            Чат
           </Button>
 
           <Button
@@ -921,7 +922,7 @@ export default function TaskDetailPage() {
             ) : (
               <VideoOff className="h-4 w-4 mr-2" />
             )}
-            Video
+            Видео
           </Button>
 
           <Button
@@ -931,7 +932,7 @@ export default function TaskDetailPage() {
             disabled={isRunning}
           >
             <Play className="h-4 w-4 mr-2" />
-            Run
+            Запуск
           </Button>
           <Button
             onClick={handleSubmit}
@@ -940,12 +941,14 @@ export default function TaskDetailPage() {
             className="bg-green-600 hover:bg-green-700"
           >
             <CheckCircle2 className="h-4 w-4 mr-2" />
-            {completed ? 'Completed' : 'Submit'}
+            {completed ? 'Завершено' : 'Отправить'}
           </Button>
 
-          <Button size="sm" variant="outline" onClick={handleSignOut}>
-            Sign out
-          </Button>
+          <UserProfile
+            userName={userName}
+            userEmail={userName}
+            onSignOut={handleSignOut}
+          />
         </div>
       </header>
 
@@ -1067,9 +1070,9 @@ export default function TaskDetailPage() {
       <Dialog open={roomAccessDialogOpen} onOpenChange={setRoomAccessDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Collaborative Session Access</DialogTitle>
+            <DialogTitle>Доступ к совместной сессии</DialogTitle>
             <DialogDescription>
-              Share this room to collaborate on the task with others
+              Поделитесь этой комнатой, чтобы решать задачу вместе
             </DialogDescription>
           </DialogHeader>
 
@@ -1077,7 +1080,7 @@ export default function TaskDetailPage() {
             <div className="space-y-4">
               {/* Room ID */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Room ID</label>
+                <label className="text-sm font-medium">ID комнаты</label>
                 <div className="flex items-center gap-2">
                   <Input value={roomId} readOnly className="font-mono text-xs" />
                   <Button
@@ -1093,17 +1096,17 @@ export default function TaskDetailPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Share this room ID with others to collaborate in real-time
+                  Поделитесь этим ID с другими, чтобы работать в реальном времени
                 </p>
               </div>
 
               {/* Access Level Selection */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Who can access this room?</label>
+                  <label className="text-sm font-medium">Кто может получить доступ?</label>
                   {!roomIsOwner && (
                     <span className="text-[10px] text-muted-foreground">
-                      Only the room creator can change this.
+                      Изменить может только создатель комнаты.
                     </span>
                   )}
                 </div>
@@ -1119,9 +1122,9 @@ export default function TaskDetailPage() {
                         : 'border-border bg-background hover:bg-muted/60'
                     } ${!roomIsOwner ? 'opacity-70 cursor-not-allowed' : ''}`}
                   >
-                    <div className="font-medium mb-1">Owner only</div>
+                    <div className="font-medium mb-1">Только владелец</div>
                     <p className="text-[11px] text-muted-foreground">
-                      Only you can join this room.
+                      Только вы можете войти в эту комнату.
                     </p>
                   </button>
 
@@ -1135,17 +1138,17 @@ export default function TaskDetailPage() {
                         : 'border-border bg-background hover:bg-muted/60'
                     } ${!roomIsOwner ? 'opacity-70 cursor-not-allowed' : ''}`}
                   >
-                    <div className="font-medium mb-1">Anyone with link</div>
+                    <div className="font-medium mb-1">Любой по ссылке</div>
                     <p className="text-[11px] text-muted-foreground">
-                      Anyone with the room ID can join.
+                      Любой, кто знает ID комнаты, может войти.
                     </p>
                   </button>
                 </div>
 
                 <div className="rounded-md bg-blue-500/10 border border-blue-500/20 p-3">
                   <p className="text-xs text-blue-500">
-                    <strong>Note:</strong> Access settings are persisted to the database.
-                    The room ID is saved in your browser for this task.
+                    <strong>Примечание:</strong> Настройки доступа сохраняются в базе данных.
+                    ID комнаты сохранён в вашем браузере для этой задачи.
                   </p>
                 </div>
               </div>
@@ -1157,7 +1160,7 @@ export default function TaskDetailPage() {
               onClick={handleSaveRoomAccess}
               disabled={roomAccessSaving}
             >
-              {roomAccessSaving ? 'Saving...' : 'Close'}
+              {roomAccessSaving ? 'Сохранение...' : 'Закрыть'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -43,7 +43,7 @@ export function ConsoleOutput({
       return (
         <Badge variant="secondary" className="gap-1">
           <Clock className="h-3 w-3 animate-spin" />
-          Running...
+          Выполнение...
         </Badge>
       );
     }
@@ -90,7 +90,7 @@ export function ConsoleOutput({
         )}
         {output.exit_code !== undefined && (
           <div className="flex items-center gap-1">
-            <span>Exit: {output.exit_code}</span>
+            <span>Код выхода: {output.exit_code}</span>
           </div>
         )}
       </div>
@@ -103,7 +103,7 @@ export function ConsoleOutput({
         <div className="flex items-center justify-center h-32 text-muted-foreground">
           <div className="flex flex-col items-center gap-2">
             <Clock className="h-6 w-6 animate-spin" />
-            <span>Executing code...</span>
+            <span>Выполнение кода...</span>
           </div>
         </div>
       );
@@ -120,7 +120,7 @@ export function ConsoleOutput({
     if (!output) {
       return (
         <div className="text-muted-foreground text-sm italic">
-          Click the Run button to execute your code
+          Нажмите кнопку «Запуск», чтобы выполнить код
         </div>
       );
     }
@@ -129,16 +129,16 @@ export function ConsoleOutput({
       <div className="space-y-4">
         {/* Debug info */}
         <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-          Status: {output.status?.id} ({output.status?.description}) | 
-          Exit Code: {output.exit_code} | 
-          Time: {output.time}s | 
-          Memory: {output.memory}KB
+          Статус: {output.status?.id} ({output.status?.description}) | 
+          Код выхода: {output.exit_code} | 
+          Время: {output.time}с | 
+          Память: {output.memory}КБ
         </div>
 
         {/* Judge0 internal message */}
         {output.message && (
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground">Message</div>
+            <div className="text-xs font-medium text-muted-foreground">Сообщение</div>
             <pre className="bg-muted/50 rounded-md p-3 text-sm font-mono whitespace-pre-wrap overflow-auto max-h-40">
               {output.message}
             </pre>
@@ -148,7 +148,7 @@ export function ConsoleOutput({
         {/* Compile errors */}
         {output.compile_output && (
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground">Compile Output</div>
+            <div className="text-xs font-medium text-muted-foreground">Вывод компилятора</div>
             <pre className="bg-muted/50 rounded-md p-3 text-sm text-destructive font-mono whitespace-pre-wrap overflow-auto max-h-40">
               {output.compile_output}
             </pre>
@@ -158,7 +158,7 @@ export function ConsoleOutput({
         {/* Runtime errors */}
         {output.stderr && (
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground">Errors</div>
+            <div className="text-xs font-medium text-muted-foreground">Ошибки</div>
             <pre className="bg-muted/50 rounded-md p-3 text-sm text-destructive font-mono whitespace-pre-wrap overflow-auto max-h-40">
               {output.stderr}
             </pre>
@@ -168,10 +168,10 @@ export function ConsoleOutput({
         {/* Standard output - ALWAYS show this section for test results */}
         <div className="space-y-1">
           <div className="text-xs font-medium text-muted-foreground">
-            {output.stdout ? 'Test Output' : 'Output (empty)'}
+            {output.stdout ? 'Результат теста' : 'Вывод (пусто)'}
           </div>
           <pre className="bg-muted/50 rounded-md p-3 text-sm font-mono whitespace-pre-wrap overflow-auto max-h-60 min-h-[100px]">
-            {output.stdout || '(no output)'}
+            {output.stdout || '(нет вывода)'}
           </pre>
         </div>
       </div>
@@ -183,7 +183,7 @@ export function ConsoleOutput({
       <CardHeader className="py-2 px-4 border-b flex flex-row items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <Terminal className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-sm font-medium">Console</CardTitle>
+          <CardTitle className="text-sm font-medium">Консоль</CardTitle>
           {getStatusBadge()}
         </div>
         <div className="flex items-center gap-2">

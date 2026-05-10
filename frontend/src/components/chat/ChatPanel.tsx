@@ -86,15 +86,15 @@ export function ChatPanel({
 
   const emojiGroups: { label: string; emojis: string[] }[] = [
     {
-      label: 'Smileys',
+      label: 'Смайлики',
       emojis: ['😀', '😁', '😂', '🤣', '😊', '😍', '😎', '😢', '😡', '🥳', '🤡 '],
     },
     {
-      label: 'Hands',
+      label: 'Руки',
       emojis: ['👍', '👎', '👏', '🙏', '✌️', '👌'],
     },
     {
-      label: 'Misc',
+      label: 'Прочее',
       emojis: ['🔥', '✨', '✅', '❌', '💡', '🚀'],
     },
   ];
@@ -114,7 +114,7 @@ export function ChatPanel({
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4" />
-          <h2 className="font-semibold text-sm">Chat</h2>
+          <h2 className="font-semibold text-sm">Чат</h2>
           {roomId && (
             <Badge variant="secondary" className="text-xs">
               {roomId.slice(0, 8)}
@@ -136,7 +136,7 @@ export function ChatPanel({
         <div className="space-y-4">
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-8">
-              No messages yet. Start the conversation!
+              Пока нет сообщений. Начните разговор!
             </div>
           ) : (
             messages.map((message) => {
@@ -196,7 +196,7 @@ export function ChatPanel({
           <Input
             ref={inputRef}
             type="text"
-            placeholder="Type a message..."
+            placeholder="Введите сообщение..."
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={handleKeyDown}

@@ -15,7 +15,7 @@ export function StatsPanel({ stats }: StatsPanelProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
-            Completed
+            Завершено
           </CardTitle>
           <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
@@ -23,8 +23,8 @@ export function StatsPanel({ stats }: StatsPanelProps) {
           <div className="text-2xl font-bold">{stats.totalCompleted}</div>
           <p className="text-xs text-muted-foreground">
             {stats.totalAttempts - stats.totalCompleted > 0 
-              ? `${stats.totalAttempts - stats.totalCompleted} in progress` 
-              : 'All started tasks completed'}
+              ? `${stats.totalAttempts - stats.totalCompleted} в процессе` 
+              : 'Все начатые задачи завершены'}
           </p>
         </CardContent>
       </Card>
@@ -33,14 +33,14 @@ export function StatsPanel({ stats }: StatsPanelProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
-            Easy
+            Легкие
           </CardTitle>
           <TrendingUp className="h-4 w-4 text-muted-foreground text-green-500" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.difficultyStats.easy}</div>
           <p className="text-xs text-muted-foreground">
-            Beginner-friendly tasks
+            Задачи для начинающих
           </p>
         </CardContent>
       </Card>
@@ -49,14 +49,14 @@ export function StatsPanel({ stats }: StatsPanelProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
-            Medium
+            Средние
           </CardTitle>
           <BookOpen className="h-4 w-4 text-muted-foreground text-yellow-500" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.difficultyStats.medium}</div>
           <p className="text-xs text-muted-foreground">
-            Intermediate challenges
+            Задачи среднего уровня
           </p>
         </CardContent>
       </Card>
@@ -65,14 +65,14 @@ export function StatsPanel({ stats }: StatsPanelProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
-            Hard
+            Сложные
           </CardTitle>
           <BookOpen className="h-4 w-4 text-muted-foreground text-red-500" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.difficultyStats.hard}</div>
           <p className="text-xs text-muted-foreground">
-            Advanced problems
+            Продвинутые задачи
           </p>
         </CardContent>
       </Card>

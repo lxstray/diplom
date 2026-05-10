@@ -126,7 +126,7 @@ export function CollaboratorsList({
     <ScrollArea className="h-full">
       <div className="space-y-2 p-4">
         <div className="text-xs font-medium text-muted-foreground px-1 mb-3">
-          Collaborators
+Участники
         </div>
         {collaborators.map((collaborator) => {
           const isOwn = collaborator.id === currentUserId;
@@ -147,7 +147,7 @@ export function CollaboratorsList({
                     {collaborator.name}
                     {isOwn && (
                       <span className="text-muted-foreground text-xs ml-1">
-                        (You)
+(Вы)
                       </span>
                     )}
                   </span>
@@ -156,14 +156,14 @@ export function CollaboratorsList({
                       <Video className="h-3 w-3" />
                     )}
                     {collaborator.isAudioEnabled === false && (
-                      <span className="text-destructive">Muted</span>
+                      <span className="text-destructive">Микрофон выкл.</span>
                     )}
                   </div>
                 </div>
               </div>
               {isOwn && (
                 <Badge variant="default" className="text-xs">
-                  You
+                  Вы
                 </Badge>
               )}
             </div>

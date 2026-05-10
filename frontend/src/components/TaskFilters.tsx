@@ -29,31 +29,31 @@ export function TaskFilters({
       <div className="flex flex-wrap gap-4 items-center">
         {/* Difficulty Filter */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Difficulty:</span>
+          <span className="text-sm text-muted-foreground">Сложность:</span>
           <Select value={difficulty} onValueChange={onDifficultyChange}>
             <SelectTrigger className="w-32 h-9">
-              <SelectValue placeholder="All" />
+              <SelectValue placeholder="Все" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="easy">Easy</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="hard">Hard</SelectItem>
+              <SelectItem value="all">Все</SelectItem>
+              <SelectItem value="easy">Легко</SelectItem>
+              <SelectItem value="medium">Средне</SelectItem>
+              <SelectItem value="hard">Сложно</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* Status Filter */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Status:</span>
+          <span className="text-sm text-muted-foreground">Статус:</span>
           <Select value={status} onValueChange={onStatusChange}>
             <SelectTrigger className="w-32 h-9">
-              <SelectValue placeholder="All" />
+              <SelectValue placeholder="Все" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="not_completed">Not Completed</SelectItem>
+              <SelectItem value="all">Все</SelectItem>
+              <SelectItem value="completed">Завершено</SelectItem>
+              <SelectItem value="not_completed">Не завершено</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -67,14 +67,14 @@ export function TaskFilters({
             className="h-9 px-3"
           >
             <X className="h-4 w-4 mr-1" />
-            Clear
+            Очистить
           </Button>
         )}
       </div>
 
       {/* Task Count */}
       <div className="text-sm text-muted-foreground">
-        Showing {totalTasks} {totalTasks === 1 ? 'task' : 'tasks'}
+        Показано {totalTasks} {totalTasks === 1 ? 'задача' : totalTasks < 5 ? 'задачи' : 'задач'}
       </div>
     </div>
   );

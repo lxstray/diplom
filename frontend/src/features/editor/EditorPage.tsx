@@ -33,6 +33,7 @@ import { ChatPanel } from '@/components/chat/ChatPanel';
 import { VideoPanel } from '@/components/video/VideoPanel';
 import { CollaboratorsPanel } from '@/components/collaborators/CollaboratorsPanel';
 import { CursorOverlay } from '@/components/cursor/CursorOverlay';
+import { UserProfile } from '@/components/UserProfile';
 import { supabase } from '@/lib/supabaseClient';
 import {
   Users,
@@ -51,7 +52,7 @@ const MonacoEditor = dynamic(() => import('@/components/MonacoEditor'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-full text-muted-foreground">
-      Loading editor...
+      Загрузка редактора...
     </div>
   ),
 });
@@ -268,7 +269,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
   const handleSignIn = async () => {
     setAuthError(null);
     if (!email.trim() || !password) {
-      setAuthError('Email and password are required.');
+      setAuthError('Email и пароль обязательны.');
       return;
     }
     const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -283,7 +284,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
   const handleSignUp = async () => {
     setAuthError(null);
     if (!email.trim() || !password) {
-      setAuthError('Email and password are required.');
+      setAuthError('Email и пароль обязательны.');
       return;
     }
     const { error: signUpError } = await supabase.auth.signUp({
@@ -574,17 +575,17 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                 variant="default"
               >
                 <FolderOpen className="h-4 w-4 mr-2" />
-                New Project
+                Новый проект
               </Button>
               <Input
                 type="text"
-                placeholder="Enter room ID"
+                placeholder="Введите ID комнаты"
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value)}
                 className="w-40 h-9"
               />
               <Button onClick={(e) => { e.preventDefault(); handleJoinRoom(); }} size="sm">
-                Join
+                Присоединиться
               </Button>
             </div>
           ) : (
@@ -597,10 +598,10 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
               >
                 <FolderOpen className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground">Room:</span>
+              <span className="text-sm text-muted-foreground">Комната:</span>
               <span className="font-semibold">{currentRoom}</span>
               <Badge variant={connected ? "default" : "secondary"}>
-                {connected ? 'Connected' : 'Connecting...'}
+                {connected ? 'Подключено' : 'Подключение...'}
               </Badge>
               <CollaboratorsPanel
                 peers={peers}
@@ -614,7 +615,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                 onClick={handleOpenRoomAccess}
               >
                 <ShieldCheck className="h-3 w-3 mr-1" />
-                Access
+                Доступ
               </Button>
               <Button
                 size="sm"
@@ -632,7 +633,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                 ) : (
                   <VideoOff className="h-3 w-3 mr-1" />
                 )}
-                Video
+                Видео
               </Button>
               <Button
                 size="sm"
@@ -641,10 +642,10 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                 onClick={() => setChatOpen(!chatOpen)}
               >
                 <MessageSquare className="h-3 w-3 mr-1" />
-                Chat
+                Чат
               </Button>
               <Button onClick={handleLeaveRoom} size="sm" variant="destructive">
-                Leave
+                Выйти
               </Button>
             </div>
           )}
@@ -652,14 +653,9 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
 
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            {currentFile && (
-              <span className="text-sm text-muted-foreground">
-                Editing: {currentFile.name}
-              </span>
-            )}
             <Select value={language} onValueChange={setLanguage}>
               <SelectTrigger className="w-32 h-9">
-                <SelectValue placeholder="Language" />
+                <SelectValue placeholder="Язык" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="javascript">JavaScript</SelectItem>
@@ -680,52 +676,49 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                 className="gap-2"
               >
                 <Play className="h-4 w-4" />
-                Run
+                Запуск
               </Button>
             )}
           </div>
 
           <div className="flex items-center gap-2">
             {authLoading ? (
-              <span className="text-sm text-muted-foreground">Loading...</span>
+              <span className="text-sm text-muted-foreground">Загрузка...</span>
             ) : userId ? (
-              <>
-                <span className="text-sm text-muted-foreground">
-                  {userName}
-                </span>
-                <Button size="sm" variant="outline" onClick={handleSignOut}>
-                  Sign out
-                </Button>
-              </>
+              <UserProfile
+                userName={userName}
+                userEmail={userName}
+                onSignOut={handleSignOut}
+              />
             ) : (
               <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" variant="outline">
-                    Sign in / Register
+                    Войти / Регистрация
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>
-                      {authMode === 'signin' ? 'Welcome back' : 'Create account'}
+                      {authMode === 'signin' ? 'С возвращением' : 'Создать аккаунт'}
                     </DialogTitle>
                     <DialogDescription>
                       {authMode === 'signin'
-                        ? 'Sign in with your email and password or continue with a provider.'
-                        : 'Sign up with your email and password or continue with a provider.'}
+                        ? 'Войдите с помощью email и пароля или через провайдера.'
+                        : 'Зарегистрируйтесь с помощью email и пароля или через провайдера.'}
                     </DialogDescription>
                   </DialogHeader>
 
                   <div className="mt-4 space-y-3">
                     <Input
                       type="email"
-                      placeholder="Email"
+                      placeholder="Электронная почта"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
                     <Input
                       type="password"
-                      placeholder="Password"
+                      placeholder="Пароль"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -741,15 +734,15 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                         }
                       >
                         {authMode === 'signin'
-                          ? "Don't have an account? Sign up"
-                          : 'Already have an account? Sign in'}
+                          ? "Нет аккаунта? Зарегистрируйтесь"
+                          : 'Уже есть аккаунт? Войдите'}
                       </button>
                     </div>
 
                     <div className="flex items-center gap-2 pt-2">
                       <div className="h-px flex-1 bg-border" />
                       <span className="text-xs text-muted-foreground">
-                        or continue with
+                        или продолжить с
                       </span>
                       <div className="h-px flex-1 bg-border" />
                     </div>
@@ -822,7 +815,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                         }
                       }}
                     >
-                      {authMode === 'signin' ? 'Sign in' : 'Sign up'}
+                      {authMode === 'signin' ? 'Войти' : 'Зарегистрироваться'}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -849,7 +842,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
               {yFiles && (
                 <div className="space-y-2">
                   <div className="text-xs font-medium text-muted-foreground px-1">
-                    Files
+                    Файлы
                   </div>
                   <FileTree
                     yFiles={yFiles}
@@ -894,12 +887,12 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
               </div>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground text-lg">
-                Create a file to start editing
+Создайте файл, чтобы начать редактировать
               </div>
             )
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground text-lg">
-              Create or join a room to start collaborative coding
+Создайте или присоединитесь к комнате для совместной работы
             </div>
           )}
         </main>
@@ -940,15 +933,15 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
       <Dialog open={newProjectDialogOpen} onOpenChange={setNewProjectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Project</DialogTitle>
+            <DialogTitle>Создать новый проект</DialogTitle>
             <DialogDescription>
-              Give your new project a descriptive name.
+              Дайте своему новому проекту осмысленное название.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 mt-4">
             <Input
-              placeholder="My awesome project"
+              placeholder="Мой крутой проект"
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               onKeyDown={(e) => {
@@ -968,7 +961,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                 setNewProjectName('');
               }}
             >
-              Cancel
+              Отмена
             </Button>
             <Button
               type="button"
@@ -976,7 +969,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                 void handleCreateProject();
               }}
             >
-              Create Project
+              Создать проект
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -986,16 +979,16 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
       <Dialog open={roomAccessDialogOpen} onOpenChange={setRoomAccessDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Room access</DialogTitle>
+            <DialogTitle>Доступ к комнате</DialogTitle>
             <DialogDescription>
-              Control who can open and collaborate in this room.
+              Настройте, кто может открывать эту комнату и работать в ней.
             </DialogDescription>
           </DialogHeader>
 
           <div className="mt-4 space-y-4">
             <div className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">
-                Room ID
+                ID комнаты
               </span>
               <div className="flex items-center gap-2">
                 <code className="px-2 py-1 rounded bg-muted text-xs flex-1 break-all">
@@ -1021,23 +1014,23 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
 
             <div className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">
-                Project
+                Проект
               </span>
               <div className="text-sm">
                 {roomAccessLoading
-                  ? 'Loading...'
-                  : roomProjectName ?? 'Unknown project'}
+                  ? 'Загрузка...'
+                  : roomProjectName ?? 'Неизвестный проект'}
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">
-                  Who can access this room?
+                  Кто может получить доступ к комнате?
                 </span>
                 {!roomIsOwner && (
                   <span className="text-[10px] text-muted-foreground">
-                    Only the project owner can change this.
+                    Изменить может только владелец проекта.
                   </span>
                 )}
               </div>
@@ -1054,7 +1047,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                       const { data: sessionData } = await supabase.auth.getSession();
                       const accessToken = sessionData.session?.access_token;
                       if (!accessToken) {
-                        setRoomAccessError('You must be signed in to change access.');
+                        setRoomAccessError('Вы должны войти, чтобы изменить доступ.');
                         return;
                       }
 
@@ -1084,7 +1077,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                       setRoomAccessError(
                         err instanceof Error
                           ? err.message
-                          : 'Failed to update room access.',
+                          : 'Не удалось обновить доступ к комнате.',
                       );
                     } finally {
                       setRoomAccessSaving(false);
@@ -1096,9 +1089,9 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                       : 'border-border bg-background hover:bg-muted/60'
                   } ${!roomIsOwner ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
-                  <div className="font-medium mb-1">Owner only</div>
+                  <div className="font-medium mb-1">Только владелец</div>
                   <p className="text-[11px] text-muted-foreground">
-                    Only the project owner can join this room.
+                    Только владелец проекта может войти в эту комнату.
                   </p>
                 </button>
 
@@ -1113,7 +1106,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                       const { data: sessionData } = await supabase.auth.getSession();
                       const accessToken = sessionData.session?.access_token;
                       if (!accessToken) {
-                        setRoomAccessError('You must be signed in to change access.');
+                        setRoomAccessError('Вы должны войти, чтобы изменить доступ.');
                         return;
                       }
 
@@ -1143,7 +1136,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                       setRoomAccessError(
                         err instanceof Error
                           ? err.message
-                          : 'Failed to update room access.',
+                          : 'Не удалось обновить доступ к комнате.',
                       );
                     } finally {
                       setRoomAccessSaving(false);
@@ -1155,9 +1148,9 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
                       : 'border-border bg-background hover:bg-muted/60'
                   } ${!roomIsOwner ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
-                  <div className="font-medium mb-1">Anyone with link</div>
+                  <div className="font-medium mb-1">Любой по ссылке</div>
                   <p className="text-[11px] text-muted-foreground">
-                    Any signed-in user who knows the room ID can join.
+                    Любой вошедший пользователь, знающий ID комнаты, может войти.
                   </p>
                 </button>
               </div>
@@ -1176,7 +1169,7 @@ export default function EditorPage({ initialRoomId }: EditorPageProps) {
               variant="outline"
               onClick={() => setRoomAccessDialogOpen(false)}
             >
-              Close
+              Закрыть
             </Button>
           </DialogFooter>
         </DialogContent>

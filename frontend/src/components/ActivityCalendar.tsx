@@ -15,11 +15,11 @@ interface DayData {
 }
 
 const MONTH_NAMES = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
+  'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'
 ];
 
-const DAY_NAMES = ['Mon', 'Wed', 'Fri'];
+const DAY_NAMES = ['Пн', 'Ср', 'Пт'];
 
 export function ActivityCalendar({ activity, className }: ActivityCalendarProps) {
   const calendarData = useMemo(() => {
@@ -111,7 +111,7 @@ export function ActivityCalendar({ activity, className }: ActivityCalendarProps)
   return (
     <div className={className}>
       <div className="text-xs text-muted-foreground mb-2">
-        {totalContributions} contributions in the last year
+        {totalContributions} вкладов за прошедший год
       </div>
       
       <div className="relative">
@@ -134,10 +134,10 @@ export function ActivityCalendar({ activity, className }: ActivityCalendarProps)
         <div className="flex gap-1">
           {/* Day labels */}
           <div className="flex flex-col gap-1 pt-1">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+            {['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'].map((day, index) => (
               index % 2 === 0 && (
                 <div key={day} className="h-3 w-3 text-xs text-muted-foreground flex items-center justify-center">
-                  {day === 'Mon' || day === 'Wed' || day === 'Fri' ? day : ''}
+                  {day === 'Пн' || day === 'Ср' || day === 'Пт' ? day : ''}
                 </div>
               )
             ))}
@@ -151,7 +151,7 @@ export function ActivityCalendar({ activity, className }: ActivityCalendarProps)
                   <div
                     key={day.date}
                     className={`h-3 w-3 rounded-sm ${getLevelColor(day.level)} transition-colors`}
-                    title={`${day.count} contributions on ${day.date}`}
+                    title={`${day.count} вкладов: ${day.date}`}
                   />
                 ))}
               </div>
@@ -162,13 +162,13 @@ export function ActivityCalendar({ activity, className }: ActivityCalendarProps)
 
       {/* Legend */}
       <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground justify-end">
-        <span>Less</span>
+        <span>Меньше</span>
         <div className="h-3 w-3 rounded-sm bg-muted" />
         <div className="h-3 w-3 rounded-sm bg-green-700" />
         <div className="h-3 w-3 rounded-sm bg-green-600" />
         <div className="h-3 w-3 rounded-sm bg-green-500" />
         <div className="h-3 w-3 rounded-sm bg-green-400" />
-        <span>More</span>
+        <span>Больше</span>
       </div>
     </div>
   );

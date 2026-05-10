@@ -125,15 +125,15 @@ export function RoomHistoryPanel({ onReconnect, userId }: RoomHistoryPanelProps)
     const diffDays = Math.floor(diffMs / 86400000);
 
     if (diffMins < 1) {
-      return 'Just now';
+      return 'Только что';
     } else if (diffMins < 60) {
-      return `${diffMins}m ago`;
+      return `${diffMins} мин. назад`;
     } else if (diffHours < 24) {
-      return `${diffHours}h ago`;
+      return `${diffHours} ч. назад`;
     } else if (diffDays < 7) {
-      return `${diffDays}d ago`;
+      return `${diffDays} дн. назад`;
     } else {
-      return date.toLocaleDateString();
+      return date.toLocaleDateString('ru-RU');
     }
   };
 
@@ -142,12 +142,12 @@ export function RoomHistoryPanel({ onReconnect, userId }: RoomHistoryPanelProps)
       <Card className="border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Recent Rooms
+            Недавние комнаты
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-xs text-muted-foreground">
-            Sign in to view your room history
+            Войдите, чтобы увидеть историю комнат
           </p>
         </CardContent>
       </Card>
@@ -159,7 +159,7 @@ export function RoomHistoryPanel({ onReconnect, userId }: RoomHistoryPanelProps)
       <Card className="border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Recent Rooms
+            Недавние комнаты
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -176,7 +176,7 @@ export function RoomHistoryPanel({ onReconnect, userId }: RoomHistoryPanelProps)
       <Card className="border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Recent Rooms
+            Недавние комнаты
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -187,7 +187,7 @@ export function RoomHistoryPanel({ onReconnect, userId }: RoomHistoryPanelProps)
             className="mt-2 h-7 text-xs"
             onClick={loadHistory}
           >
-            Retry
+            Повторить
           </Button>
         </CardContent>
       </Card>
@@ -199,13 +199,13 @@ export function RoomHistoryPanel({ onReconnect, userId }: RoomHistoryPanelProps)
       <Card className="border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Recent Rooms
+            Недавние комнаты
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
-            <span>No recent rooms</span>
+            <span>Нет недавних комнат</span>
           </div>
         </CardContent>
       </Card>
@@ -216,7 +216,7 @@ export function RoomHistoryPanel({ onReconnect, userId }: RoomHistoryPanelProps)
     <Card className="border-border">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium text-muted-foreground">
-          Recent Rooms
+          Недавние комнаты
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -235,13 +235,13 @@ export function RoomHistoryPanel({ onReconnect, userId }: RoomHistoryPanelProps)
                 </span>
                 {item.room.access === 'ANYONE_WITH_LINK' && (
                   <Badge variant="secondary" className="h-4 text-[10px] px-1">
-                    Public
+                    Публичная
                   </Badge>
                 )}
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="truncate max-w-[120px]">
-                  Room
+                  Комната
                 </span>
                 <span>•</span>
                 <span>{formatLastAccessed(item.lastAccessed)}</span>

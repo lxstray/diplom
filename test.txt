@@ -1,0 +1,39 @@
+c61bec3 HEAD@{0}: checkout: moving from 7450fd571f14cebcd225bf0e151babb35a9b37cf to main
+7450fd5 HEAD@{1}: commit: checkpoint
+c61bec3 HEAD@{2}: checkout: moving from main to c61bec3
+c61bec3 HEAD@{3}: commit: MVP tak skazat'
+9a190e3 HEAD@{4}: commit: finaly
+2bba164 HEAD@{5}: commit: -_-
+5c51e3d HEAD@{6}: commit: fucking qwen broke sync
+f0d5d35 HEAD@{7}: commit: fix: compleate sync
+4cbd434 HEAD@{8}: commit: fix: tasks video chat
+d6953fc HEAD@{9}: commit: fix: sync in tasks
+beed51a HEAD@{10}: commit: pypypy
+d6b067b HEAD@{11}: commit: tyajelo
+8ee466a HEAD@{12}: commit: v4.1.1 qwen/cursor dead -_-
+59822c1 HEAD@{13}: commit: dayj
+237b042 HEAD@{14}: commit: v4.1 console output fix
+fb69f48 HEAD@{15}: commit: aga
+a834e34 HEAD@{16}: commit: aga
+70ab8c3 HEAD@{17}: commit: v4.1 in progress
+4040e08 HEAD@{18}: commit: v4.0 fix exercism folder issue
+8bebf97 HEAD@{19}: commit: v4.0 leetcode
+9ce5354 HEAD@{20}: commit: v3.2 emoji
+c9c2cde HEAD@{21}: commit: v3.0 comunication
+c6c8031 HEAD@{22}: commit: v2.4 code execution VSE
+0ba65e7 HEAD@{23}: commit: v2.3 code execution working
+da8069d HEAD@{24}: commit: v2.2 code execution
+74f511f HEAD@{25}: commit: v2.1 room history in supabase
+6284d16 HEAD@{26}: commit: v2.0 room history
+c503f7f HEAD@{27}: commit: v1.5 fix room reopen issue
+9487fe4 HEAD@{28}: commit: v1.4 room access
+1aa5a50 HEAD@{29}: commit: v1.3 file tree context menu
+e0f1e96 HEAD@{30}: commit: v1.2 +dir
+5fe560d HEAD@{31}: commit: v1.1 +files
+c067fd5 HEAD@{32}: commit: in progress
+c8e4a4d HEAD@{33}: commit: v1.0
+80f3a71 HEAD@{34}: commit: v0.2 fix sync issues
+93dae90 HEAD@{35}: commit: finally v0.1
+c8c4ecf HEAD@{36}: commit: ochen tyagko
+a1a816e HEAD@{37}: commit: tyagelo
+3cbd325 HEAD@{38}: commit (initial): batman

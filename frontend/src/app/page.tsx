@@ -37,7 +37,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-4">
               <Link href="/tasks">
-                <Button variant="outline">Go to Tasks</Button>
+                <Button variant="outline">Перейти к задачам</Button>
               </Link>
             </div>
           </div>
@@ -48,16 +48,16 @@ export default function HomePage() {
       <main className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold mb-4">
-            Learn to Code with Real-time Collaboration
+            Учитесь программировать вместе в реальном времени
           </h2>
           <p className="text-xl text-muted-foreground mb-8">
-            Solve coding challenges, collaborate with others, and track your progress
+            Решайте задачи, сотрудничайте с другими и отслеживайте свой прогресс
           </p>
           <div className="flex gap-4 justify-center">
             <Link href="/tasks">
               <Button size="lg" className="gap-2">
                 <BookOpen className="h-5 w-5" />
-                Browse Tasks
+                Перейти к задачам
               </Button>
             </Link>
           </div>
@@ -67,23 +67,23 @@ export default function HomePage() {
         <div className="grid md:grid-cols-3 gap-8">
           <div className="text-center p-6 rounded-lg bg-card border">
             <BookOpen className="h-12 w-12 mx-auto mb-4 text-primary" />
-            <h3 className="text-xl font-semibold mb-2">Coding Challenges</h3>
+            <h3 className="text-xl font-semibold mb-2">Программистские задачи</h3>
             <p className="text-muted-foreground">
-              Practice with hundreds of JavaScript exercises from Exercism
+              Практикуйтесь на сотнях JavaScript-упражнений из Exercism
             </p>
           </div>
           <div className="text-center p-6 rounded-lg bg-card border">
             <Users className="h-12 w-12 mx-auto mb-4 text-primary" />
-            <h3 className="text-xl font-semibold mb-2">Collaborative Editing</h3>
+            <h3 className="text-xl font-semibold mb-2">Совместное редактирование</h3>
             <p className="text-muted-foreground">
-              Code together in real-time with CRDT-based synchronization
+              Пишите код вместе в реальном времени с CRDT-синхронизацией
             </p>
           </div>
           <div className="text-center p-6 rounded-lg bg-card border">
             <Trophy className="h-12 w-12 mx-auto mb-4 text-primary" />
-            <h3 className="text-xl font-semibold mb-2">Track Progress</h3>
+            <h3 className="text-xl font-semibold mb-2">Отслеживайте прогресс</h3>
             <p className="text-muted-foreground">
-              Monitor your improvement with detailed statistics and activity graphs
+              Следите за ростом с детальной статистикой и графиками активности
             </p>
           </div>
         </div>
